@@ -334,10 +334,14 @@ function setLayerInfo(group)
         local layerRecords = {
           top = 0,
           left = 0,
-          bottom = 0,
-          right = 0,
-          channelCount = 0,
+          bottom = 1,
+          right = 1,
+          channelCount = 4,
           channels = {
+            {id = 0, size = 6},
+            {id = 1, size = 6},
+            {id = 2, size = 6},
+            {id = 0xFFFF, size = 6}
           },
           blendSig = "8BIM",
           blendMode = "norm",
@@ -362,8 +366,20 @@ function setLayerInfo(group)
         if not layer.isVisible then layerRecords.flags = layerRecords.flags | 2 end
         layerRecords.padding = (3 - layerRecords.nameLength % 4)    -- (4 - (nameLength + 1)% 4)% 4
         layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding
-        lmi.layerInfo.size = lmi.layerInfo.size + 34 + layerRecords.exFieldSize
+        lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + 24
         lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
+        lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = {
+          compression ={
+            r = 1,
+            g = 1,
+            b = 1,
+            a = 1
+          },
+          r = { 0, 2, 0, 0 },
+          g = { 0, 2, 0, 0 },
+          b = { 0, 2, 0, 0 },
+          a = { 0, 2, 0, 0 }
+        }
       end
     end
   end
