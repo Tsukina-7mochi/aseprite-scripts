@@ -19,8 +19,8 @@
  3. Specify the frame number to export
  4. Click OK
  5. If you see the message says "PSD file saved as * * *.psd", the process succeeded.
- 6. Edit your psd file in other application (recommended)
-[Why do I recommended to edit my psd file?]
+ 6. Edit your psd file in other application (recommended)[^1]
+[^1]: Why do I recommended to edit my psd file?
 This script exports as PSD file without expression, the file may be big or huge.
 You can change scale if you need, in this step, too.
 
@@ -37,7 +37,7 @@ E-Main : Tsukina_7mochi□gmail.com (change □→@, responce may delay)
 
 ## Reference
 Aseprite API (https://github.com/aseprite/api)  
-Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_26431)  
+Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)  
 Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html)  
 Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)  
 Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)  
