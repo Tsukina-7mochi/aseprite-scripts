@@ -36,13 +36,13 @@ Twitter: @Tsukina_7mochi
 E-Main : Tsukina_7mochi□gmail.com (change □→@, responce may delay)
 
 ## Reference
-Aseprite API (https://github.com/aseprite/api)
-Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_26431)
-Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html)
-Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)
-Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)
+Aseprite API (https://github.com/aseprite/api) 
+Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_26431) 
+Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html) 
+Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File) 
+Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c) 
 PSD Tool (https://oov.github.io/psdtool/)
 
-#-:-:- Acknowledgments -:-:-
-燻丸 (@ibushi_maru)
+## Acknowledgments
+燻丸 (@ibushi_maru) 
   He gave me support a lot in sharing this script. Great thanks to him.
