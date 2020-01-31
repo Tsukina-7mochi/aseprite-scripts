@@ -20,6 +20,7 @@
  4. Click OK
  5. If you see the message says "PSD file saved as * * *.psd", the process succeeded.
  6. Edit your psd file in other application (recommended)[^1]
+   
 [^1]: Why do I recommended to edit my psd file?
 This script exports as PSD file without expression, the file may be big or huge.
 You can change scale if you need, in this step, too.
