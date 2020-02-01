@@ -25,6 +25,77 @@ function write(file, size, data)
   end
 end
 
+-- returns the sum of the table value
+function sum(arr)
+  local result = 0
+  for i, n in ipairs(arr) do
+    if type(n) == "number" then
+      result = result + n
+    end
+  end
+
+  return result
+end
+
+-- Compress with RLE (PackBits)
+function packBits(arr)
+  local size = 0xFF
+
+  if #arr == 0 then
+    return arr
+  end
+
+  local result = {}
+  local buff = { arr[1] }
+  local flag = -1
+
+  local i = 2
+  while i <= #arr do
+    if flag == 0 then
+      -- continuous
+      if buff[#buff] == arr[i] then
+        buff[#buff+1] = arr[i]
+      else
+        result[#result+1] = size - (#buff - 2)
+        result[#result+1] = buff[1]
+        buff = { arr[i] }
+        flag = -1
+      end
+    elseif flag == 1 then
+      -- discontinuous
+      if buff[#buff] ~= arr[i] then
+        buff[#buff+1] = arr[i]
+      else
+        result[#result+1] = #buff - 2
+        for j = 1, #buff-1 do result[#result+1] = buff[j] end
+        buff = { arr[i], arr[i] }
+        flag = 0
+      end
+    else
+      -- undetermined
+      if buff[#buff] == arr[i] then
+        flag = 0
+      else
+        flag = 1
+      end
+      buff[#buff+1] = arr[i]
+    end
+    i = i + 1
+  end
+
+  if flag == 0 then
+    result[#result+1] = size - (#buff - 2)
+    result[#result+1] = buff[1]
+  else
+    result[#result+1] = #buff - 1
+    for j = 1, #buff do result[#result+1] = buff[j] end
+  end
+
+  return result
+end
+
+--------------------------------
+
 if app.apiVersion < 1 then
   return app.alert("This script requires Aseprite v1.2.10-beta3")
 end
@@ -178,10 +249,22 @@ function setLayerInfo(group)
           b = 1,
           a = 1
         },
-        r = { 0, 2, 0, 0 },
-        g = { 0, 2, 0, 0 },
-        b = { 0, 2, 0, 0 },
-        a = { 0, 2, 0, 0 }
+        r = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        g = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        b = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        a = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        }
       }
       --
 
@@ -238,10 +321,22 @@ function setLayerInfo(group)
           b = 1,
           a = 1
         },
-        r = { 0, 2, 0, 0 },
-        g = { 0, 2, 0, 0 },
-        b = { 0, 2, 0, 0 },
-        a = { 0, 2, 0, 0 }
+        r = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        g = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        b = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        },
+        a = {
+          size = { 2 },
+          data = {{ 0, 0 }}
+        }
       }
 
       lmi.layerInfo.count = lmi.layerInfo.count + #layer.layers + 1
@@ -249,8 +344,81 @@ function setLayerInfo(group)
       local cel = layer:cel(frameNum)
       if cel then
         local image = cel.image
-        -- image size:  8 * w * h / 8
-        local imageSize = cel.bounds.width * cel.bounds.height
+
+        local imageData = {
+          compression ={
+            r = 1,
+            g = 1,
+            b = 1,
+            a = 1
+          },
+          r = {
+            size = {},
+            data = {}
+          },
+          g = {
+            size = {},
+            data = {}
+          },
+          b = {
+            size = {},
+            data = {}
+          },
+          a = {
+            size = {},
+            data = {}
+          }
+        }
+        for y = 0, cel.bounds.height-1 do
+          local row = {
+            r = {},
+            g = {},
+            b = {},
+            a = {}
+          }
+          for x = 0, cel.bounds.width-1 do
+            local color = { r=0, g=0, b=0, a=0 }
+            local pixel = image:getPixel(x , y)
+            if image.colorMode == ColorMode.RGB then
+              color.r = app.pixelColor.rgbaR(pixel)
+              color.g = app.pixelColor.rgbaG(pixel)
+              color.b = app.pixelColor.rgbaB(pixel)
+              color.a = app.pixelColor.rgbaA(pixel)
+            elseif image.colorMode == ColorMode.GRAY then
+              color.r = app.pixelColor.grayaV(pixel)
+              color.g = app.pixelColor.grayaV(pixel)
+              color.b = app.pixelColor.grayaV(pixel)
+              color.a = app.pixelColor.grayaA(pixel)
+            elseif image.colorMode == ColorMode.INDEXED then
+              local c = sprite.palettes[1]:getColor(pixel)
+              color.r = c.red
+              color.g = c.green
+              color.b = c.blue
+              if pixel == 0 then color.a = 0 else color.a = c.alpha end
+            end
+            row.r[#row.r + 1] = color.r
+            row.g[#row.g + 1] = color.g
+            row.b[#row.b + 1] = color.b
+            row.a[#row.a + 1] = color.a
+          end
+          imageData.r.data[#imageData.r.data + 1] = packBits(row.r)
+          imageData.g.data[#imageData.g.data + 1] = packBits(row.g)
+          imageData.b.data[#imageData.b.data + 1] = packBits(row.b)
+          imageData.a.data[#imageData.a.data + 1] = packBits(row.a)
+          imageData.r.size[#imageData.r.size + 1] = #imageData.r.data[#imageData.r.data]
+          imageData.g.size[#imageData.g.size + 1] = #imageData.g.data[#imageData.g.data]
+          imageData.b.size[#imageData.b.size + 1] = #imageData.b.data[#imageData.b.data]
+          imageData.a.size[#imageData.a.size + 1] = #imageData.a.data[#imageData.a.data]
+        end
+        lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = imageData
+
+        local imageSize = {
+          r = sum(imageData.r.size) + #imageData.r.size * 2 + 2,
+          g = sum(imageData.g.size) + #imageData.g.size * 2 + 2,
+          b = sum(imageData.b.size) + #imageData.b.size * 2 + 2,
+          a = sum(imageData.a.size) + #imageData.a.size * 2 + 2
+        }
+
         local layerRecords = {
           top = cel.bounds.y,
           left = cel.bounds.x,
@@ -258,10 +426,10 @@ function setLayerInfo(group)
           right = cel.bounds.x + cel.bounds.width,
           channelCount = 4,
           channels = {
-            {id = 0, size = imageSize + 2},
-            {id = 1, size = imageSize + 2},
-            {id = 2, size = imageSize + 2},
-            {id = 0xFFFF, size = imageSize + 2}
+            {id = 0, size = imageSize.r},
+            {id = 1, size = imageSize.g},
+            {id = 2, size = imageSize.b},
+            {id = 0xFFFF, size = imageSize.a}
           },
           blendSig = "8BIM",
           blendMode = blendModeTable[cel.layer.blendMode],
@@ -286,49 +454,8 @@ function setLayerInfo(group)
         if not layer.isVisible then layerRecords.flags = layerRecords.flags | 2 end
         layerRecords.padding = (3 - layerRecords.nameLength % 4)    -- (4 - (nameLength + 1)% 4)% 4
         layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding
-        lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + (imageSize + 2) * 4
+        lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + imageSize.r + imageSize.g + imageSize.b + imageSize.a
         lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
-
-        local imageData = {
-          compression ={
-            r = 0,
-            g = 0,
-            b = 0,
-            a = 0
-          },
-          r = {},
-          g = {},
-          b = {},
-          a = {}
-        }
-        for y = 0, cel.bounds.height-1 do
-          for x = 0, cel.bounds.width-1 do
-            local color = { r=0, g=0, b=0, a=0 }
-            local pixel = image:getPixel(x , y)
-            if image.colorMode == ColorMode.RGB then
-              color.r = app.pixelColor.rgbaR(pixel)
-              color.g = app.pixelColor.rgbaG(pixel)
-              color.b = app.pixelColor.rgbaB(pixel)
-              color.a = app.pixelColor.rgbaA(pixel)
-            elseif image.colorMode == ColorMode.GRAY then
-              color.r = app.pixelColor.grayaV(pixel)
-              color.g = app.pixelColor.grayaV(pixel)
-              color.b = app.pixelColor.grayaV(pixel)
-              color.a = app.pixelColor.grayaA(pixel)
-            elseif image.colorMode == ColorMode.INDEXED then
-              local c = sprite.palettes[1]:getColor(pixel)
-              color.r = c.red
-              color.g = c.green
-              color.b = c.blue
-              if pixel == 0 then color.a = 0 else color.a = c.alpha end
-            end
-            imageData.r[#imageData.r + 1] = color.r
-            imageData.g[#imageData.g + 1] = color.g
-            imageData.b[#imageData.b + 1] = color.b
-            imageData.a[#imageData.a + 1] = color.a
-          end
-        end
-        lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = imageData
       else
         -- insert empty layer
         local layerRecords = {
@@ -375,10 +502,22 @@ function setLayerInfo(group)
             b = 1,
             a = 1
           },
-          r = { 0, 2, 0, 0 },
-          g = { 0, 2, 0, 0 },
-          b = { 0, 2, 0, 0 },
-          a = { 0, 2, 0, 0 }
+          r = {
+            size = { 2 },
+            data = {{ 0, 0 }}
+          },
+          g = {
+            size = { 2 },
+            data = {{ 0, 0 }}
+          },
+          b = {
+            size = { 2 },
+            data = {{ 0, 0 }}
+          },
+          a = {
+            size = { 2 },
+            data = {{ 0, 0 }}
+          }
         }
       end
     end
@@ -422,49 +561,37 @@ for i, record in ipairs(lmi.layerInfo.records) do
   end
 end
 
+function exportImageData(file, compression, data)
+  write(file, 2, compression)
+  if compression == 0 then
+    for i, d in ipairs(data) do
+      write(file, 1, d)
+    end
+  elseif compression == 1 then
+    for i, d in ipairs(data.size) do
+      write(file, 2, d)
+    end
+    for i, row in ipairs(data.data) do
+      for i, d in ipairs(row) do
+        write(file, 1, d)
+      end
+    end
+  end
+end
+
 for i, data in ipairs(lmi.layerInfo.imageData) do
-  write(file, 2, data.compression.r)
-  for i, r in ipairs(data.r) do
-    write(file, 1, r)
-  end
-
-  write(file, 2, data.compression.g)
-  for i, g in ipairs(data.g) do
-    write(file, 1, g)
-  end
-
-  write(file, 2, data.compression.b)
-  for i, b in ipairs(data.b) do
-    write(file, 1, b)
-  end
-
-  write(file, 2, data.compression.a)
-  for i, a in ipairs(data.a) do
-    write(file, 1, a)
-  end
+  exportImageData(file, data.compression.r, data.r)
+  exportImageData(file, data.compression.g, data.g)
+  exportImageData(file, data.compression.b, data.b)
+  exportImageData(file, data.compression.a, data.a)
 end
 
 --image data section
 for i, data in ipairs(lmi.layerInfo.imageData) do
-  write(file, 2, data.compression.r)
-  for i, r in ipairs(data.r) do
-    write(file, 1, r)
-  end
-
-  write(file, 2, data.compression.g)
-  for i, g in ipairs(data.g) do
-    write(file, 1, g)
-  end
-
-  write(file, 2, data.compression.b)
-  for i, b in ipairs(data.b) do
-    write(file, 1, b)
-  end
-
-  write(file, 2, data.compression.a)
-  for i, a in ipairs(data.a) do
-    write(file, 1, a)
-  end
+  exportImageData(file, data.compression.r, data.r)
+  exportImageData(file, data.compression.g, data.g)
+  exportImageData(file, data.compression.b, data.b)
+  exportImageData(file, data.compression.a, data.a)
 end
 
 file:close()
