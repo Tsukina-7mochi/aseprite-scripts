@@ -22,7 +22,8 @@
  6. Edit your psd file in other application (recommended[^1])
    
 [^1]: Why do I recommended to edit my psd file?  
-This script exports as PSD file without expression, the file may be big or huge.  
+~~This script exports as PSD file without expression, the file may be big or huge.  ~~
+Compression is supported now.
 You can change scale if you need, in this step, too.
 
 ## Uninstallation
