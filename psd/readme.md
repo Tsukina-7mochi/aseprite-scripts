@@ -4,8 +4,6 @@
 ###### version: 1.0.1 2020/1/31
 ---
 
-[file](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20PSD.lua)
-
 ## About This Script
  This script exports aseprite files as photoshop file format (.psd)
 
