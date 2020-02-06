@@ -80,6 +80,21 @@ function packBits(arr)
       end
       buff[#buff+1] = arr[i]
     end
+
+    if #buff > size/2 then
+      if flag == 0 then
+        result[#result+1] = size - (#buff - 2)
+        result[#result+1] = buff[1]
+        buff = { arr[i] }
+        flag = -1
+      else
+        result[#result+1] = #buff - 1
+        for j = 1, #buff do result[#result+1] = buff[j] end
+        buff = { arr[i] }
+        flag = -1
+      end
+    end
+
     i = i + 1
   end
 
