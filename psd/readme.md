@@ -1,7 +1,7 @@
 ---
 # [Aseprite Script] Export as PSD
 ##### by Tsukina_7mochi
-###### version: 1.1.1 2020/1/31
+###### version: 1.1.1 2020/2/6
 ---
 
 ## About This Script
