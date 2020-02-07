@@ -1,7 +1,7 @@
 ---
 # [Aseprite Script] Export as PSD
 ##### by Tsukina_7mochi
-###### version: 1.1.1 2020/2/6
+###### version: 1.1.2 2020/2/7
 ---
 
 ## About This Script
@@ -34,6 +34,8 @@ You can edit the source code as you like, and distribute it.
 You cannot redestribute files with no change without my permission.
 
 ## Update Log
+- 1.1.2
+  - Fixed an issue with compression
 - 1.1.1
   - Fixed an issue with compression
 - 1.1.0
