@@ -46,10 +46,10 @@ function packBits(arr)
   end
 
   local result = {}
-  local buff = { arr[1] }
+  local buff = {}
   local flag = -1
 
-  local i = 2
+  local i = 1
   while i <= #arr do
     if flag == 0 then
       -- continuous
@@ -73,10 +73,12 @@ function packBits(arr)
       end
     else
       -- undetermined
-      if buff[#buff] == arr[i] then
-        flag = 0
-      else
-        flag = 1
+      if #buff ~= 0 then
+        if buff[#buff] == arr[i] then
+          flag = 0
+        else
+          flag = 1
+        end
       end
       buff[#buff+1] = arr[i]
     end
@@ -85,25 +87,25 @@ function packBits(arr)
       if flag == 0 then
         result[#result+1] = size - (#buff - 2)
         result[#result+1] = buff[1]
-        buff = { arr[i] }
-        flag = -1
       else
         result[#result+1] = #buff - 1
         for j = 1, #buff do result[#result+1] = buff[j] end
-        buff = { arr[i] }
-        flag = -1
       end
+      buff = {}
+      flag = -1
     end
 
     i = i + 1
   end
 
-  if flag == 0 then
-    result[#result+1] = size - (#buff - 2)
-    result[#result+1] = buff[1]
-  else
-    result[#result+1] = #buff - 1
-    for j = 1, #buff do result[#result+1] = buff[j] end
+  if #buff ~= 0 then
+    if flag == 0 then
+      result[#result+1] = size - (#buff - 2)
+      result[#result+1] = buff[1]
+    else
+      result[#result+1] = #buff - 1
+      for j = 1, #buff do result[#result+1] = buff[j] end
+    end
   end
 
   return result
