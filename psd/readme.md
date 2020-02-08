@@ -33,6 +33,10 @@ You can change scale if you need, in this step, too.
 You can edit the source code as you like, and distribute it.  
 You cannot redestribute files with no change without my permission.
 
+## Download
+[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20PSD.lua)
+[Stable](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20psd_1.0.lua)
+
 ## Update Log
 - 1.1.2
   - Fixed an issue with compression
