@@ -51,7 +51,7 @@ You cannot redestribute files with no change without my permission.
 
 ## Contact
 Twitter: @Tsukina_7mochi  
-E-Mail: Tsukina_7mochi□gmail.com (change □→@, responce may delay)
+E-Mail: Tsukina_7mochi□gmail.com (replace □→@, responce may delay)
 
 ## Reference
 Aseprite API (https://github.com/aseprite/api)  
