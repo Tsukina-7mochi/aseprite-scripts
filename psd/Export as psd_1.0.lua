@@ -68,7 +68,6 @@ blendModeTable[BlendMode.DIVIDE] = "fdiv"
 
 local UTF8toSJIS = dofile("export_as_psd_lib\\UTF8toSJIS.lua")
 local fht = io.open(app.fs.userConfigPath .. "\\scripts\\export_as_psd_lib\\Utf8Sjis.tbl", "r")
-local layerNameSJIS, layerNameSJIS_len
 
 -- open file
 local filename = sprite.filename .. ".psd"
@@ -141,7 +140,7 @@ lmi.layerInfo = {
 
 function setLayerInfo(group)
   for i, layer in ipairs(group) do
-    layerNameSJIS, layerNameSJIS_len = UTF8toSJIS:UTF8_to_SJIS_str_cnv(fht, layer.name)
+    local layerNameSJIS, layerNameSJIS_len = UTF8toSJIS:UTF8_to_SJIS_str_cnv(fht, layer.name)
     if layer.isGroup then
       -- open folder
       local layerRecords = {
