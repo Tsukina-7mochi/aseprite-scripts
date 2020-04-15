@@ -64,3 +64,6 @@ PSD Tool (https://oov.github.io/psdtool/)
 ## Acknowledgments
 燻丸 (@ibushi_maru)  
   He gave me support a lot in sharing this script. Great thanks to him.
+
+## LICENSE
+[MIT](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
