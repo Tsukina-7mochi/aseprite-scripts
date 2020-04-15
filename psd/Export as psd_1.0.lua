@@ -25,6 +25,17 @@ function write(file, size, data)
   end
 end
 
+-- write string (for multi-byte character)
+function writeStr(file, str)
+  if not file then return end
+  if not str then return end
+
+  for i = 1, #str do
+    file:write(string.format("%c", str:byte(i)))
+  end
+end
+
+
 if app.apiVersion < 1 then
   return app.alert("This script requires Aseprite v1.2.10-beta3")
 end
@@ -54,6 +65,10 @@ blendModeTable[BlendMode.HSL_LUMINOSITY] = "lum "
 blendModeTable[BlendMode.ADDITION] = "lddg"
 blendModeTable[BlendMode.SUBTRACT] = "fsub"
 blendModeTable[BlendMode.DIVIDE] = "fdiv"
+
+local UTF8toSJIS = dofile("export_as_psd_lib\\UTF8toSJIS.lua")
+local fht = io.open(app.fs.userConfigPath .. "\\scripts\\export_as_psd_lib\\Utf8Sjis.tbl", "r")
+local layerNameSJIS, layerNameSJIS_len
 
 -- open file
 local filename = sprite.filename .. ".psd"
@@ -126,6 +141,7 @@ lmi.layerInfo = {
 
 function setLayerInfo(group)
   for i, layer in ipairs(group) do
+    layerNameSJIS, layerNameSJIS_len = UTF8toSJIS:UTF8_to_SJIS_str_cnv(fht, layer.name)
     if layer.isGroup then
       -- open folder
       local layerRecords = {
@@ -165,9 +181,6 @@ function setLayerInfo(group)
           }
         },
       }
-      if layerRecords.nameLength > 127 then
-        layerRecords.nameLength = 127
-      end
       layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding + 16
       lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + 24
       lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
@@ -213,8 +226,8 @@ function setLayerInfo(group)
         blendingRange = {
           size = 0
         },
-        nameLength = string.len(layer.name),
-        name = layer.name:sub(0, 127),
+        nameLength = layerNameSJIS_len,
+        name = layerNameSJIS:sub(0, 127),
         padding = 3,
         adjustment = {
           {
@@ -276,8 +289,8 @@ function setLayerInfo(group)
           blendingRange = {
             size = 0
           },
-          nameLength = string.len(cel.layer.name),
-          name = cel.layer.name:sub(0, 127),
+          nameLength = layerNameSJIS_len,
+          name = layerNameSJIS:sub(0, 127),
           padding = 0
         }
         if layerRecords.nameLength > 127 then
@@ -356,8 +369,8 @@ function setLayerInfo(group)
           blendingRange = {
             size = 0
           },
-          nameLength = string.len(layer.name),
-          name = layer.name:sub(0, 127),
+          nameLength = layerNameSJIS_len,
+          name = layerNameSJIS:sub(0, 127),
           padding = 0
         }
         if layerRecords.nameLength > 127 then
@@ -410,7 +423,7 @@ for i, record in ipairs(lmi.layerInfo.records) do
   write(file, 4, record.mask.size)
   write(file, 4, record.blendingRange.size)
   write(file, 1, record.nameLength)
-  file:write(record.name)
+  writeStr(file, record.name)
   write(file, record.padding, 0)
   if record.adjustment then
     for i, d in ipairs(record.adjustment) do
@@ -468,5 +481,6 @@ for i, data in ipairs(lmi.layerInfo.imageData) do
 end
 
 file:close()
+fht:close()
 
 app.alert("PSD file saved as " .. filename)
