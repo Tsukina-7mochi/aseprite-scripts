@@ -36,7 +36,7 @@ You cannot redestribute files with no change without my permission.
 
 ## Download
 [Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20PSD.lua)  
-[Stable](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20psd_1.0.lua)
+[Stable](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/_zip/Export%20as%20psd_1.0.zip)
 
 ## Update Log
 - 1.1.2
