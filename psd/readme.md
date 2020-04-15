@@ -11,6 +11,7 @@
  1. Open your script folder.
    (File -> Scripts -> Open Scripts Folder)
  2. Drop "Export as PSD.lua"
+ ### ver 1.0.2 requairs export_as_psd_lib directory too.
 
 ## Usage
  1. Run script
@@ -44,7 +45,9 @@ You cannot redestribute files with no change without my permission.
   - Fixed an issue with compression
 - 1.1.0
   - Support compression
-- 1.0.1 20201/31  
+- 1.0.2 2020/4/15
+  - Support Shift-JIS Character
+- 1.0.1 2020/1/31  
   - Fix issues on exporting empty layer
 - 1.0.0 2020/1/31  
   - First Release
