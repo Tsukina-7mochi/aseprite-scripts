@@ -1,7 +1,7 @@
 ---
 # [Aseprite Script] Export as PSD
 ##### by Tsukina_7mochi
-###### version: 1.1.2 2020/2/7
+###### version: 1.2.0 2020/7/18
 ---
 
 ## About This Script
@@ -35,10 +35,11 @@ You can edit the source code as you like, and distribute it.
 You cannot redestribute files with no change without my permission.
 
 ## Download
-[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20PSD.lua)  
-[Stable](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/_zip/Export%20as%20psd_1.0.zip)
+[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20PSD.lua)
 
 ## Update Log
+- 1.2.0
+  - Fixed problem that some applications cannot open psd file exported by this script
 - 1.1.2
   - Fixed an issue with compression
 - 1.1.1
