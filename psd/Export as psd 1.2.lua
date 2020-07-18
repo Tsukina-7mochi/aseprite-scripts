@@ -155,17 +155,17 @@ blendModeTable[BlendMode.DIVIDE] = "fdiv"
 local filename = sprite.filename .. ".psd"
 local frameNum = 1
 
---local dialog =
---  Dialog():entry { id="filename", label="Filename: ", text=filename }
---          :number{ id="frameNum", label="Frame number: ", text=string.format("%d", frameNum)}
---          :button{ id="ok", text="&OK", focus=true }
---          :button{ id="cancel", text="&Cancel" }
---dialog:show()
+local dialog =
+  Dialog():entry { id="filename", label="Filename: ", text=filename }
+          :number{ id="frameNum", label="Frame number: ", text=string.format("%d", frameNum)}
+          :button{ id="ok", text="&OK", focus=true }
+          :button{ id="cancel", text="&Cancel" }
+dialog:show()
 
---if not dialog.data.ok then return end
---filename = dialog.data.filename
---frameNum = dialog.data.frameNum
---if not filename then return end
+if not dialog.data.ok then return end
+filename = dialog.data.filename
+frameNum = dialog.data.frameNum
+if not filename then return end
 
 if not isInteger(frameNum) then
   app.alert("Frame number is not valid.")
@@ -508,11 +508,6 @@ function setLayerInfo(group)
           }
         }
 
-        print("size r: " .. lr.channels[1].size)
-        print("size g: " .. lr.channels[2].size)
-        print("size b: " .. lr.channels[3].size)
-        print("size a: " .. lr.channels[4].size)
-
         if not layer.isVisible then
           -- visualize
           lr.flags = lr.flags | 2
@@ -663,7 +658,6 @@ fsprite:close()
 
 
 -- export to file
-print("0")
 -- File Header
 file:write(fh.signature)
 write(file, 2, fh.version)
@@ -680,14 +674,11 @@ write(file, 4, cm.size)
 -- Image Resources
 write(file, 4, ir.size)
 
-print("1")
 -- Layer and Mask Information
 write(file, 4, lm.size)
 write(file, 4, lm.layer.size)
 write(file, 2, lm.layer.count)
-print("2")
 for i, record in ipairs(lm.layer.records) do
-  print("3." .. i)
   write(file, 4, record.top)
   write(file, 4, record.left)
   write(file, 4, record.bottom)
@@ -716,7 +707,6 @@ for i, record in ipairs(lm.layer.records) do
     write(file, d.size, d.data)
   end
 end
-print("4")
 
 function exportImageData(file, data)
   write(file, 2, data.compression)
@@ -735,7 +725,6 @@ for i, data in ipairs(lm.layer.image) do
   exportImageData(file, data.b)
   exportImageData(file, data.a)
 end
-print("5")
 
 --image data section
 write(file, 2, id.compression)
@@ -774,5 +763,4 @@ end
 
 file:close()
 
-print("succeeded")
---app.alert("PSD file saved as " .. filename)
+app.alert("PSD file saved as " .. filename)
