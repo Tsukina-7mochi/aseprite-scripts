@@ -35,7 +35,7 @@ You can edit the source code as you like, and distribute it.
 You cannot redestribute files with no change without my permission.
 
 ## Download
-[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20PSD.lua)
+[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20psd%201.2.lua)
 
 ## Update Log
 - 1.2.0
