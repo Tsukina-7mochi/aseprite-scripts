@@ -11,7 +11,8 @@
  1. Open your script folder.
    (File -> Scripts -> Open Scripts Folder)
  2. Drop "Export as PSD.lua"
- ### ver 1.0.2 requairs export_as_psd_lib directory too.
+ ~~## ver 1.0.2 requairs export_as_psd_lib directory too.~~
+ the latest version of script does not require other than .lua flie for now.
 
 ## Usage
  1. Run script
@@ -40,6 +41,7 @@ You cannot redestribute files with no change without my permission.
 ## Update Log
 - 1.2.0
   - Fixed problem that some applications cannot open psd file exported by this script
+  - Unsupport shift-JIS
 - 1.1.2
   - Fixed an issue with compression
 - 1.1.1
