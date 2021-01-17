@@ -1,6 +1,8 @@
 ## About This Script
  A script that applies smooth filter.
 
+ ![screenshot](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smoothFilter/screenshot.png)
+
 ## Installation
  1. Open your script folder.
    (File -> Scripts -> Open Scripts Folder)
