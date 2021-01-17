@@ -1,9 +1,3 @@
----
-# [Aseprite Script] Export as PSD
-##### by Tsukina_7mochi
-###### version: 1.2.0 2020/7/18
----
-
 ## About This Script
  This script exports aseprite files as photoshop file format (.psd)
 
@@ -22,14 +16,11 @@
  4. Click OK
  5. If you see the message says "PSD file saved as * * *.psd", the process succeeded.
  6. Edit your psd file in other application (recommended[^1])
-   
+
 [^1]: Why do I recommended to edit my psd file?  
 ~~This script exports as PSD file without expression, the file may be big or huge.~~  
 Compression is supported now.  
 You can change scale if you need, in this step, too.
-
-## Uninstallation
- Just delete "Export as PSD.lua."
 
 ## In Use
 You can edit the source code as you like, and distribute it.  
@@ -57,7 +48,6 @@ You cannot redestribute files with no change without my permission.
 
 ## Contact
 Twitter: @Tsukina_7mochi  
-E-Mail: Tsukina_7mochi□gmail.com (replace □→@, responce may delay)
 
 ## Reference
 Aseprite API (https://github.com/aseprite/api)  
