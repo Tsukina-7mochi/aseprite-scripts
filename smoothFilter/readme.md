@@ -5,7 +5,7 @@
 
 ## Installation
  1. Open your script folder.
-   (File -> Scripts -> Open Scripts Folder)
+      (File -> Scripts -> Open Scripts Folder)
  2. Copy "Smooth Filter.lua"
 
 ## Options
@@ -18,10 +18,10 @@
 
 ## In Use
 You can edit the source code and distribute it.  
-You cannot redestribute files with no change without my permission.
+You cannot redistribute files with no change without my permission.
 
 ## Contact
-Twitter: @Tsukina_7mochi  
+GitHub Issue or Twitter: @Tsukina_7mochi 
 
 ## LICENSE
 [MIT](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
