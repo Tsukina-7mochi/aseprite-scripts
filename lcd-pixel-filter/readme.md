@@ -21,7 +21,7 @@ LCD-pixel-like
 ## Installation
 
 1. Open your script folder. (File -> Scripts -> Open Scripts Folder)
-2. Copy ["lcd pixel filter.lua"](lcd pixel filter.lua)
+2. Copy ["lcd pixel filter.lua"](./lcd pixel filter.lua)
 
 
 
