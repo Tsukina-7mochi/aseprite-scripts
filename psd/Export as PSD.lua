@@ -25,6 +25,16 @@ function write(file, size, data)
   end
 end
 
+-- write string (for multi-byte character)
+function writeStr(file, str)
+  if not file then return end
+  if not str then return end
+
+  for i = 1, #str do
+    file:write(string.format("%c", str:byte(i)))
+  end
+end
+
 -- returns the sum of the table value
 function sum(arr)
   local result = 0
@@ -111,8 +121,6 @@ function packBits(arr)
   return result
 end
 
---------------------------------
-
 if app.apiVersion < 1 then
   return app.alert("This script requires Aseprite v1.2.10-beta3")
 end
@@ -158,6 +166,7 @@ if not dialog.data.ok then return end
 filename = dialog.data.filename
 frameNum = dialog.data.frameNum
 if not filename then return end
+
 if not isInteger(frameNum) then
   app.alert("Frame number is not valid.")
   return
@@ -168,9 +177,12 @@ if frameNum < 1 or #sprite.frames < frameNum then
 end
 
 file = io.open(filename, "wb")
-if not file then return -1 end
+if not file then
+  app.alert("Failed to open the file to export.")
+  return
+end
 
--- File Header Section
+-- File Header
 local fh = {
   signature = "8BPS",
   version = 1,
@@ -181,42 +193,54 @@ local fh = {
   depth = 8,
   colorMode = 3
 }
-
-file:write(fh.signature)
-write(file, 2, fh.version)
-write(file, 6, fh.reserved)
-write(file, 2, fh.channels)
-write(file, 4, fh.height)
-write(file, 4, fh.width)
-write(file, 2, fh.depth)
-write(file, 2, fh.colorMode)
-
 -- Color Mode Data
-write(file, 4, 0)
-
+local cm = {
+  size = 0;
+}
 -- Image Resources
-write(file, 4, 0)
-
+local ir = {
+  size = 0
+}
 -- Layer and Mask Information
-local lmi = {
+local lm = {
   size = 0,
-  layerInfo = {},
-  globalLayerMaskInfo = {},   -- not used
-  addition = {}               -- not used
+  layer = {
+    size = 2,   -- size of layer count
+    count = 0,
+    records = {},
+    image = {}
+  },
+  mask = {},
+  addition = {}
+}
+-- Image data
+local id = {
+  compression = 1,
+  r = {
+    size = {},
+    data = {}
+  },
+  g = {
+    size = {},
+    data = {}
+  },
+  b = {
+    size = {},
+    data = {}
+  },
+  a = {
+    size = {},
+    data = {}
+  }
 }
 
-lmi.layerInfo = {
-  size = 2,
-  count = #sprite.layers,
-  records = {},
-  imageData = {}
-}
-
+-- called recursively to explore layer tree
 function setLayerInfo(group)
   for i, layer in ipairs(group) do
+    local layerName = layer.name:sub(1 ,127)
     if layer.isGroup then
-      -- open folder
-      local layerRecords = {
+      -- close folder
+      local lr = {
         top = 0,
         left = 1,
         bottom = 1,
@@ -241,9 +265,11 @@ function setLayerInfo(group)
         blendingRange = {
           size = 0
         },
-        nameLength = 0,
-        name = "",
-        padding = 3,
+        name = {
+          length = 0,
+          name = "",
+          padding = 3
+        },
         adjustment = {
           {
             signature = "8BIM",
@@ -251,44 +277,45 @@ function setLayerInfo(group)
             size = 4,
             data = 3
           }
-        },
+        }
       }
-      if layerRecords.nameLength > 127 then
-        layerRecords.nameLength = 127
-      end
-      layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding + 16
-      lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + 24
-      lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
-      lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = {
-        compression ={
-          r = 1,
-          g = 1,
-          b = 1,
-          a = 1
-        },
+
+      -- mask: 4 + blendingRange: 4 + name: 4 + adjustment: (4 + 4 + 4 + 4)
+      lr.exFieldSize = 28
+      -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
+      --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
+      --   imageData: 24
+      lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + 24
+      lm.layer.count = lm.layer.count + 1
+      table.insert(lm.layer.records, lr)
+      table.insert(lm.layer.image, {
         r = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         g = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         b = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         a = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
-        }
-      }
-      --
+        },
+      })
 
+      -- explore group
       setLayerInfo(layer.layers)
 
-      -- close folder
-      local layerRecords2 = {
+      -- open folder
+      local lr2 = {
         top = 0,
         left = 0,
         bottom = 1,
@@ -313,9 +340,11 @@ function setLayerInfo(group)
         blendingRange = {
           size = 0
         },
-        nameLength = string.len(layer.name),
-        name = layer.name:sub(0, 127),
-        padding = 3,
+        name = {
+          length = #layerName,
+          name = layerName,
+          padding = 3 - #layerName % 4 -- (4 - (nameLength + 1 + 16)% 4)% 4
+        },
         adjustment = {
           {
             signature = "8BIM",
@@ -323,65 +352,71 @@ function setLayerInfo(group)
             size = 4,
             data = 1
           }
-        },
+        }
       }
-      if not layer.isExpanded then layerRecords2.adjustment[1].data = 2 end
-      if not layer.isVisible then layerRecords2.flags = layerRecords2.flags | 2 end
-      layerRecords2.padding = (3 - layerRecords2.nameLength % 4)    -- (4 - (nameLength + 1 + 16)% 4)% 4
-      layerRecords2.exFieldSize = 8 + 1 + layerRecords2.nameLength + layerRecords2.padding + 16
-      lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords2.exFieldSize + 24
-      lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords2
-      lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = {
-        compression ={
-          r = 1,
-          g = 1,
-          b = 1,
-          a = 1
-        },
+
+      if not layer.isExpanded then
+        -- open group
+        lr2.adjustment[1].data = 2
+      end
+      if not layer.isVisible then
+        -- visualize
+        lr2.flags = lr2.flags | 2
+      end
+      -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: (4 + 4 + 4 + 4)
+      lr2.exFieldSize = 25 + lr2.name.length + lr2.name.padding
+      -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
+      --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
+      --   imageData: 24
+      lm.layer.size = lm.layer.size + 58 + lr2.exFieldSize + 24
+      lm.layer.count = lm.layer.count + 1
+      table.insert(lm.layer.records, lr2)
+      table.insert(lm.layer.image, {
         r = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         g = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         b = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
         },
         a = {
+          compression = 1,
           size = { 2 },
           data = {{ 0, 0 }}
-        }
-      }
-
-      lmi.layerInfo.count = lmi.layerInfo.count + #layer.layers + 1
+        },
+      })
     else
       local cel = layer:cel(frameNum)
       if cel then
+        -- not a empty layer
         local image = cel.image
-
+        -- create image datas
         local imageData = {
-          compression ={
-            r = 1,
-            g = 1,
-            b = 1,
-            a = 1
-          },
           r = {
+            compression = 1,
             size = {},
             data = {}
           },
           g = {
+            compression = 1,
             size = {},
             data = {}
           },
           b = {
+            compression = 1,
             size = {},
             data = {}
           },
           a = {
+            compression = 1,
             size = {},
             data = {}
           }
@@ -394,8 +429,8 @@ function setLayerInfo(group)
             a = {}
           }
           for x = 0, cel.bounds.width-1 do
-            local color = { r=0, g=0, b=0, a=0 }
-            local pixel = image:getPixel(x , y)
+            local color = { r = 0, g = 0, b = 0, a = 0 }
+            local pixel = image:getPixel(x, y)
             if image.colorMode == ColorMode.RGB then
               color.r = app.pixelColor.rgbaR(pixel)
               color.g = app.pixelColor.rgbaG(pixel)
@@ -413,21 +448,24 @@ function setLayerInfo(group)
               color.b = c.blue
               if pixel == 0 then color.a = 0 else color.a = c.alpha end
             end
-            row.r[#row.r + 1] = color.r
-            row.g[#row.g + 1] = color.g
-            row.b[#row.b + 1] = color.b
-            row.a[#row.a + 1] = color.a
+            table.insert(row.r, color.r)
+            table.insert(row.g, color.g)
+            table.insert(row.b, color.b)
+            table.insert(row.a, color.a)
           end
-          imageData.r.data[#imageData.r.data + 1] = packBits(row.r)
-          imageData.g.data[#imageData.g.data + 1] = packBits(row.g)
-          imageData.b.data[#imageData.b.data + 1] = packBits(row.b)
-          imageData.a.data[#imageData.a.data + 1] = packBits(row.a)
-          imageData.r.size[#imageData.r.size + 1] = #imageData.r.data[#imageData.r.data]
-          imageData.g.size[#imageData.g.size + 1] = #imageData.g.data[#imageData.g.data]
-          imageData.b.size[#imageData.b.size + 1] = #imageData.b.data[#imageData.b.data]
-          imageData.a.size[#imageData.a.size + 1] = #imageData.a.data[#imageData.a.data]
+          row.r = packBits(row.r)
+          row.g = packBits(row.g)
+          row.b = packBits(row.b)
+          row.a = packBits(row.a)
+          table.insert(imageData.r.data, row.r)
+          table.insert(imageData.g.data, row.g)
+          table.insert(imageData.b.data, row.b)
+          table.insert(imageData.a.data, row.a)
+          table.insert(imageData.r.size, #row.r)
+          table.insert(imageData.g.size, #row.g)
+          table.insert(imageData.b.size, #row.b)
+          table.insert(imageData.a.size, #row.a)
         end
-        lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = imageData
 
         local imageSize = {
           r = sum(imageData.r.size) + #imageData.r.size * 2 + 2,
@@ -436,7 +474,7 @@ function setLayerInfo(group)
           a = sum(imageData.a.size) + #imageData.a.size * 2 + 2
         }
 
-        local layerRecords = {
+        local lr = {
           top = cel.bounds.y,
           left = cel.bounds.x,
           bottom = cel.bounds.y + cel.bounds.height,
@@ -461,21 +499,31 @@ function setLayerInfo(group)
           blendingRange = {
             size = 0
           },
-          nameLength = string.len(cel.layer.name),
-          name = cel.layer.name:sub(0, 127),
-          padding = 0
+          name = {
+            length = #layerName,
+            name = layerName,
+            padding = 3 - #layerName % 4
+          },
+          adjustment = {
+          }
         }
-        if layerRecords.nameLength > 127 then
-          layerRecords.nameLength = 127
+
+        if not layer.isVisible then
+          -- visualize
+          lr.flags = lr.flags | 2
         end
-        if not layer.isVisible then layerRecords.flags = layerRecords.flags | 2 end
-        layerRecords.padding = (3 - layerRecords.nameLength % 4)    -- (4 - (nameLength + 1)% 4)% 4
-        layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding
-        lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + imageSize.r + imageSize.g + imageSize.b + imageSize.a
-        lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
+        -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: 0
+        lr.exFieldSize = 9 + lr.name.length + lr.name.padding
+        -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
+        --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
+        --   imageData: ([channels[1].size] + [channels[2].size] + ... +[channels[4].size])
+        lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + lr.channels[1].size + lr.channels[2].size + lr.channels[3].size + lr.channels[4].size
+        lm.layer.count = lm.layer.count + 1
+        table.insert(lm.layer.records, lr)
+        table.insert(lm.layer.image, imageData)
       else
         -- insert empty layer
-        local layerRecords = {
+        local lr = {
           top = 0,
           left = 0,
           bottom = 1,
@@ -500,53 +548,137 @@ function setLayerInfo(group)
           blendingRange = {
             size = 0
           },
-          nameLength = string.len(layer.name),
-          name = layer.name:sub(0, 127),
-          padding = 0
-        }
-        if layerRecords.nameLength > 127 then
-          layerRecords.nameLength = 127
-        end
-        if not layer.isVisible then layerRecords.flags = layerRecords.flags | 2 end
-        layerRecords.padding = (3 - layerRecords.nameLength % 4)    -- (4 - (nameLength + 1)% 4)% 4
-        layerRecords.exFieldSize = 8 + 1 + layerRecords.nameLength + layerRecords.padding
-        lmi.layerInfo.size = lmi.layerInfo.size + 58 + layerRecords.exFieldSize + 24
-        lmi.layerInfo.records[#lmi.layerInfo.records + 1] = layerRecords
-        lmi.layerInfo.imageData[#lmi.layerInfo.imageData + 1] = {
-          compression ={
-            r = 1,
-            g = 1,
-            b = 1,
-            a = 1
+          name = {
+            length = #layerName,
+            name = layerName,
+            padding = 3 - #layerName % 4
           },
+          adjustment = {
+          }
+        }
+
+        if not layer.isVisible then
+          -- visualize
+          lr.flags = lr.flags | 2
+        end
+        -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: 0
+        lr.exFieldSize = 9 + lr.name.length + lr.name.padding
+        -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
+        --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize] +
+        --   imageData: 24
+        lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + 24
+        lm.layer.count = lm.layer.count + 1
+        table.insert(lm.layer.records, lr)
+        table.insert(lm.layer.image, {
           r = {
+            compression = 1,
             size = { 2 },
             data = {{ 0, 0 }}
           },
           g = {
+            compression = 1,
             size = { 2 },
             data = {{ 0, 0 }}
           },
           b = {
+            compression = 1,
             size = { 2 },
             data = {{ 0, 0 }}
           },
           a = {
+            compression = 1,
             size = { 2 },
             data = {{ 0, 0 }}
-          }
-        }
+          },
+        })
       end
     end
   end
 end
 setLayerInfo(sprite.layers)
-lmi.size = lmi.layerInfo.size + 4
 
-write(file, 4, lmi.size)
-write(file, 4, lmi.layerInfo.size)
-write(file, 2, lmi.layerInfo.count)
-for i, record in ipairs(lmi.layerInfo.records) do
+-- [layer info size] + mask:4 + addition: 0
+lm.size = lm.layer.size + 4
+
+
+-- image data
+local fsprite = Sprite(sprite)
+local fcel = sprite.cels[1]
+local fimage = fcel.image
+fsprite:flatten()
+for y = 0, fsprite.height-1 do
+  local row = {
+    r = {},
+    g = {},
+    b = {},
+    a = {}
+  }
+  for x = 0, fsprite.width-1 do
+    local color = { r = 0, g = 0, b = 0, a = 0 }
+    if fcel.bounds.x <= x and x < fcel.bounds.x + fcel.bounds.width and fcel.bounds.y <= y and y < fcel.bounds.y + fcel.bounds.height then
+      local pixel = fimage:getPixel(x - fcel.bounds.x, y - fcel.bounds.y)
+      if fimage.colorMode == ColorMode.RGB then
+        color.r = app.pixelColor.rgbaR(pixel)
+        color.g = app.pixelColor.rgbaG(pixel)
+        color.b = app.pixelColor.rgbaB(pixel)
+        color.a = app.pixelColor.rgbaA(pixel)
+      elseif fimage.colorMode == ColorMode.GRAY then
+        color.r = app.pixelColor.grayaV(pixel)
+        color.g = app.pixelColor.grayaV(pixel)
+        color.b = app.pixelColor.grayaV(pixel)
+        color.a = app.pixelColor.grayaA(pixel)
+      elseif fimage.colorMode == ColorMode.INDEXED then
+        local c = fsprite.palettes[1]:getColor(pixel)
+        color.r = c.red
+        color.g = c.green
+        color.b = c.blue
+        if pixel == 0 then color.a = 0 else color.a = c.alpha end
+      end
+    end
+    table.insert(row.r, color.r)
+    table.insert(row.g, color.g)
+    table.insert(row.b, color.b)
+    table.insert(row.a, color.a)
+  end
+  row.r = packBits(row.r)
+  row.g = packBits(row.g)
+  row.b = packBits(row.b)
+  row.a = packBits(row.a)
+  table.insert(id.r.data, row.r)
+  table.insert(id.g.data, row.g)
+  table.insert(id.b.data, row.b)
+  table.insert(id.a.data, row.a)
+  table.insert(id.r.size, #row.r)
+  table.insert(id.g.size, #row.g)
+  table.insert(id.b.size, #row.b)
+  table.insert(id.a.size, #row.a)
+end
+fsprite:close()
+
+
+
+-- export to file
+-- File Header
+file:write(fh.signature)
+write(file, 2, fh.version)
+write(file, 6, fh.reserved)
+write(file, 2, fh.channels)
+write(file, 4, fh.height)
+write(file, 4, fh.width)
+write(file, 2, fh.depth)
+write(file, 2, fh.colorMode)
+
+-- Color Mode Data
+write(file, 4, cm.size)
+
+-- Image Resources
+write(file, 4, ir.size)
+
+-- Layer and Mask Information
+write(file, 4, lm.size)
+write(file, 4, lm.layer.size)
+write(file, 2, lm.layer.count)
+for i, record in ipairs(lm.layer.records) do
   write(file, 4, record.top)
   write(file, 4, record.left)
   write(file, 4, record.bottom)
@@ -565,50 +697,68 @@ for i, record in ipairs(lmi.layerInfo.records) do
   write(file, 4, record.exFieldSize)
   write(file, 4, record.mask.size)
   write(file, 4, record.blendingRange.size)
-  write(file, 1, record.nameLength)
-  file:write(record.name)
-  write(file, record.padding, 0)
-  if record.adjustment then
-    for i, d in ipairs(record.adjustment) do
-      file:write(d.signature)
-      file:write(d.key)
-      write(file, 4, d.size)
-      write(file, d.size, d.data)
-    end
+  write(file, 1, record.name.length)
+  writeStr(file, record.name.name)
+  write(file, record.name.padding, 0)
+  for i, d in ipairs(record.adjustment) do
+    file:write(d.signature)
+    file:write(d.key)
+    write(file, 4, d.size)
+    write(file, d.size, d.data)
   end
 end
 
-function exportImageData(file, compression, data)
-  write(file, 2, compression)
-  if compression == 0 then
-    for i, d in ipairs(data) do
+function exportImageData(file, data)
+  write(file, 2, data.compression)
+  for i, s in ipairs(data.size) do
+    write(file, 2, s)
+  end
+  for i, row in ipairs(data.data) do
+    for i, d in ipairs(row) do
       write(file, 1, d)
     end
-  elseif compression == 1 then
-    for i, d in ipairs(data.size) do
-      write(file, 2, d)
-    end
-    for i, row in ipairs(data.data) do
-      for i, d in ipairs(row) do
-        write(file, 1, d)
-      end
-    end
   end
 end
-
-for i, data in ipairs(lmi.layerInfo.imageData) do
-  exportImageData(file, data.compression.r, data.r)
-  exportImageData(file, data.compression.g, data.g)
-  exportImageData(file, data.compression.b, data.b)
-  exportImageData(file, data.compression.a, data.a)
+for i, data in ipairs(lm.layer.image) do
+  exportImageData(file, data.r)
+  exportImageData(file, data.g)
+  exportImageData(file, data.b)
+  exportImageData(file, data.a)
 end
 
 --image data section
-for i, data in ipairs(lmi.layerInfo.imageData) do
-  exportImageData(file, data.compression.r, data.r)
-  exportImageData(file, data.compression.g, data.g)
-  exportImageData(file, data.compression.b, data.b)
-  exportImageData(file, data.compression.a, data.a)
+write(file, 2, id.compression)
+for i, s in ipairs(id.r.size) do
+  write(file, 2, s)
+end
+for i, s in ipairs(id.g.size) do
+  write(file, 2, s)
+end
+for i, s in ipairs(id.b.size) do
+  write(file, 2, s)
+end
+for i, s in ipairs(id.a.size) do
+  write(file, 2, s)
+end
+for i, row in ipairs(id.r.data) do
+  for i, d in ipairs(row) do
+    write(file, 1, d)
+  end
+end
+for i, row in ipairs(id.g.data) do
+  for i, d in ipairs(row) do
+    write(file, 1, d)
+  end
+end
+for i, row in ipairs(id.b.data) do
+  for i, d in ipairs(row) do
+    write(file, 1, d)
+  end
+end
+for i, row in ipairs(id.a.data) do
+  for i, d in ipairs(row) do
+    write(file, 1, d)
+  end
 end
 
 file:close()
