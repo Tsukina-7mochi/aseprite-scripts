@@ -1,6 +1,7 @@
 -- export as psd file
--- created by Tsukina_7mochi
 -- DO NOT redistribute this code
+--
+-- see: https://github.com/Tsukina-7mochi/aseprite-scripts
 ------------------------------------------------------------
 
 -- returns whether given value is integer
@@ -121,6 +122,9 @@ function packBits(arr)
   return result
 end
 
+--------------------------------------------------
+-- ENTRY
+--------------------------------------------------
 if app.apiVersion < 1 then
   return app.alert("This script requires Aseprite v1.2.10-beta3")
 end
