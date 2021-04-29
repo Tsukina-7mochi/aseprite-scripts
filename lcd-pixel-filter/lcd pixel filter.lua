@@ -1,8 +1,8 @@
---------------------
--- LCD Piexl Filter
+-- applys filter like LCD
+-- DO NOT redistribute this code
 --
--- Tsukina_7mochi
---------------------
+-- see: https://github.com/Tsukina-7mochi/aseprite-scripts
+------------------------------------------------------------
 
 -- duplicate sprite
 if not app.activeSprite then

@@ -1,10 +1,8 @@
---------------------------------------------------
+-- applies smoothing filter
+-- DO NOT redistribute this code
 --
---   Smooth Export
---
---   Export active sprite after smoothing
---
---------------------------------------------------
+-- see: https://github.com/Tsukina-7mochi/aseprite-scripts
+------------------------------------------------------------
 
 -- settings
 local scale    = 9
