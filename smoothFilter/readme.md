@@ -24,7 +24,7 @@
 
 - You can edit the source code and distribute it.  
 - You cannot redistribute files with no change without my permission.
-- This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/- master/LICENSE)
+- This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
 
 ## Download
 
