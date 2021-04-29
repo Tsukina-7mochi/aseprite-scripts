@@ -4,8 +4,6 @@
 
 An Aseprite script applies LCD-pixel-like filter to pixel-art.
 
-
-
 ## Example
 
 Original
@@ -16,28 +14,17 @@ LCD-pixel-like
 
 ![sample](sample.png)
 
-
-
 ## Installation
 
 1. Open your script folder. (File -> Scripts -> Open Scripts Folder)
-2. Copy ["lcd pixel filter.lua"](./lcd pixel filter.lua)
-
-
+2. Place "lcd pixel filter.lua"
 
 ## In Use
 
-You can edit the source code and distribute it.
-You cannot redistribute files with no change without my permission.
+- You can edit the source code as you like, and distribute it.
+- You cannot redistribute files with no change without my permission.
+- This script is provided with [MIT License
 
+## Download
 
-
-## Contact
-
-GitHub Issue or Twitter@Tsukina_7mochi
-
-
-
-## LICENSE
-
-[MIT](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
+[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/lcd-pixel-filter/lcd%20pixel%20filter.lua)
