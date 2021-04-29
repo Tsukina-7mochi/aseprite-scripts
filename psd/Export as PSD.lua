@@ -13,7 +13,7 @@ function isInteger(inVal)
     end
 end
 
--- write data with big endian
+-- writes data with big endian
 function write(file, size, data)
   if not file then return end
   if not isInteger(size) then return end
@@ -26,7 +26,7 @@ function write(file, size, data)
   end
 end
 
--- write string (for multi-byte character)
+-- writes string (for multi-byte character)
 function writeStr(file, str)
   if not file then return end
   if not str then return end
@@ -48,7 +48,7 @@ function sum(arr)
   return result
 end
 
--- Compress with RLE (PackBits)
+-- Compresses with RLE (PackBits)
 function packBits(arr)
   local size = 0xFF
 
@@ -122,16 +122,27 @@ function packBits(arr)
   return result
 end
 
+-- shows alert with failure message
+function failAlert(text)
+  app.alert{
+    title = "Export Failed",
+    text = text,
+    buttons = "OK"
+  }
+end
+
 --------------------------------------------------
 -- ENTRY
 --------------------------------------------------
 if app.apiVersion < 1 then
-  return app.alert("This script requires Aseprite v1.2.10-beta3")
+  failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
+  return
 end
 
 local sprite = app.activeSprite
 if not sprite then
-  return app.alert("There is no active sprite")
+  failAlert("No sprite selected.")
+  return
 end
 
 local blendModeTable = {}
@@ -155,36 +166,65 @@ blendModeTable[BlendMode.ADDITION] = "lddg"
 blendModeTable[BlendMode.SUBTRACT] = "fsub"
 blendModeTable[BlendMode.DIVIDE] = "fdiv"
 
--- open file
-local filename = sprite.filename .. ".psd"
-local frameNum = 1
+-- show dialog to select output file
+local filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd"
+local frameList = {}
+for i = 1, #sprite.frames do
+  table.insert(frameList, "" .. i)
+end
+local showCompleated = false
 
-local dialog =
-  Dialog():entry { id="filename", label="Filename: ", text=filename }
-          :number{ id="frameNum", label="Frame number: ", text=string.format("%d", frameNum)}
-          :button{ id="ok", text="&OK", focus=true }
-          :button{ id="cancel", text="&Cancel" }
+local dialog = Dialog()
+dialog:file{
+  id = "filename",
+  label = "Filename",
+  title = "Save as...",
+  save = true,
+  filename = filename,
+  filetypes = "psd",
+}:combobox{
+  id = "frameNum",
+  label = "Frame",
+  option = frameList[1],
+  options = frameList
+}:check{
+  id = "showCompleated",
+  label = "",
+  text = "Show dialog when succeeded",
+  selected = true
+}:button{
+  id = "ok",
+  text = "&Export",
+  focus = true
+}:button{
+  id = "cancel",
+  text="&Cancel"
+}
 dialog:show()
 
 if not dialog.data.ok then return end
+
 filename = dialog.data.filename
-frameNum = dialog.data.frameNum
-if not filename then return end
+frameNum = tonumber(dialog.data.frameNum)
+showCompleated = dialog.data.showCompleated
 
 if not isInteger(frameNum) then
-  app.alert("Frame number is not valid.")
+  failAlert("The frame number " .. frameNum .. " is not valid.")
   return
 end
 if frameNum < 1 or #sprite.frames < frameNum then
-  app.alert("The frame number " .. frameNum .. " is out of range.")
+  failAlert("The frame number " .. frameNum .. " is out of range.")
   return
 end
 
 file = io.open(filename, "wb")
 if not file then
-  app.alert("Failed to open the file to export.")
+  failAlert("Failed to open the file to export.")
   return
 end
+
+
+-- export psd file from here
 
 -- File Header
 local fh = {
@@ -238,9 +278,11 @@ local id = {
   }
 }
 
+
 -- called recursively to explore layer tree
 function setLayerInfo(group)
   for i, layer in ipairs(group) do
+
     local layerName = layer.name:sub(1 ,127)
     if layer.isGroup then
       -- close folder
@@ -604,12 +646,12 @@ setLayerInfo(sprite.layers)
 -- [layer info size] + mask:4 + addition: 0
 lm.size = lm.layer.size + 4
 
-
 -- image data
 local fsprite = Sprite(sprite)
 local fcel = sprite.cels[1]
 local fimage = fcel.image
 fsprite:flatten()
+
 for y = 0, fsprite.height-1 do
   local row = {
     r = {},
@@ -618,6 +660,7 @@ for y = 0, fsprite.height-1 do
     a = {}
   }
   for x = 0, fsprite.width-1 do
+
     local color = { r = 0, g = 0, b = 0, a = 0 }
     if fcel.bounds.x <= x and x < fcel.bounds.x + fcel.bounds.width and fcel.bounds.y <= y and y < fcel.bounds.y + fcel.bounds.height then
       local pixel = fimage:getPixel(x - fcel.bounds.x, y - fcel.bounds.y)
@@ -660,9 +703,9 @@ end
 fsprite:close()
 
 
-
 -- export to file
 -- File Header
+
 file:write(fh.signature)
 write(file, 2, fh.version)
 write(file, 6, fh.reserved)
@@ -683,6 +726,7 @@ write(file, 4, lm.size)
 write(file, 4, lm.layer.size)
 write(file, 2, lm.layer.count)
 for i, record in ipairs(lm.layer.records) do
+
   write(file, 4, record.top)
   write(file, 4, record.left)
   write(file, 4, record.bottom)
@@ -724,6 +768,7 @@ function exportImageData(file, data)
   end
 end
 for i, data in ipairs(lm.layer.image) do
+
   exportImageData(file, data.r)
   exportImageData(file, data.g)
   exportImageData(file, data.b)
@@ -731,6 +776,7 @@ for i, data in ipairs(lm.layer.image) do
 end
 
 --image data section
+
 write(file, 2, id.compression)
 for i, s in ipairs(id.r.size) do
   write(file, 2, s)
@@ -767,4 +813,10 @@ end
 
 file:close()
 
-app.alert("PSD file saved as " .. filename)
+if showCompleated then
+  local result = app.alert{
+    title = "Export Succeeded",
+    text = "PSD successfully exported as " .. filename,
+    buttons = "OK"
+  }
+end
