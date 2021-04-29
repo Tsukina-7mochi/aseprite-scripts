@@ -22,10 +22,10 @@
 
 ## In Use
 
-- You can edit the source code and distribute it.  
+- You can edit the source code and distribute it.
 - You cannot redistribute files with no change without my permission.
 - This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
 
 ## Download
 
-[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smoothFilter/Smooth%20Filter.lua)
+[Latest](https://combinatronics.com/Tsukina-7mochi/aseprite-scripts/master/smoothFilter/Smooth%20Filter.lua)
