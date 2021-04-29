@@ -2,7 +2,7 @@
 
 ## Scripts
 
-- [Export as PSD ](psd/readme.md) 
+- [Export as PSD ](psd/readme.md)  
   Applies export as photoshop file format (.psd) 
 - [LCD Pixel Filter](lcd-pixel-filter/readme.md)  
   Filter looks like LCD display
