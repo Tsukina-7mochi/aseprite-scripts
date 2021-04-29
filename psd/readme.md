@@ -25,7 +25,7 @@
 
 ## Download
 
-[Latest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/Export%20as%20psd.lua)
+[Latest](https://combinatronics.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
 ## Update Log
 
@@ -42,22 +42,22 @@
   - Support compression
 - 1.0.2 2020/4/15
   - Support Shift-JIS Character
-- 1.0.1 2020/1/31  
+- 1.0.1 2020/1/31
   - Fix issues on exporting empty layer
-- 1.0.0 2020/1/31  
+- 1.0.0 2020/1/31
   - First Release
 
 ## Reference
 
-Aseprite API (https://github.com/aseprite/api)  
-Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)  
-Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html)  
-Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)  
-Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)  
+Aseprite API (https://github.com/aseprite/api)
+Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
+Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html)
+Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)
+Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)
 PSD Tool (https://oov.github.io/psdtool/)
 
 ## Acknowledgments
 FlashAir library to convert from UTF-8 to Shift _ JIS(https://github.com/AoiSaya/FlashAir_UTF8toSJIS)
 
-[燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script. Great thanks to him.  
+[燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script. Great thanks to him.
 
