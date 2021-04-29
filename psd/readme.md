@@ -57,7 +57,6 @@ Lua で数値の型チェック（整数なのか浮動小数点なのかを判�
 PSD Tool (https://oov.github.io/psdtool/)
 
 ## Acknowledgments
-FlashAir library to convert from UTF-8 to Shift _ JIS(https://github.com/AoiSaya/FlashAir_UTF8toSJIS)
 
 [燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script. Great thanks to him.
 
