@@ -1,4 +1,7 @@
+# Export as PSD
+
 ## About This Script
+
  This script enables export of photoshop file format (.psd) to aseprite.
 
 ## Installation
