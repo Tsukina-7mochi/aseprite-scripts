@@ -4,6 +4,9 @@
 -- see: https://github.com/Tsukina-7mochi/aseprite-scripts
 ------------------------------------------------------------
 
+-- function alias
+local pc = app.pixelColor
+
 -- duplicate sprite
 if not app.activeSprite then
   return app.alert("No active sprite.")
@@ -70,38 +73,56 @@ end
 
 -- create image data array
 imgData = {}
-for y = 0, iBounds.height - 1 do
-  local arr = {}
-  for x = 0, iBounds.width - 1 do
-    local pVal = image:getPixel(x, y)
-    arr[#arr + 1] = pVal
+
+for i = 1, #sprite.cels do
+  cel = sprite.cels[i]
+  image = cel.image
+
+  if not image then
+    imgData[i] = nil
+  else
+    -- scan image
+  local data = {}
+  for y = 0, iBounds.height - 1 do
+    local arr = {}
+    for x = 0, iBounds.width - 1 do
+      local pVal = image:getPixel(x, y)
+      arr[#arr + 1] = pVal
+    end
+    data[#data + 1] = arr
   end
-  imgData[#imgData + 1] = arr
+
+  imgData[i] = data
+  end
 end
 
 -- scale
 sprite:resize(iBounds.width * 3, iBounds.height * 3)
-image = cel.image   -- update image
+
 
 -- draw
-local pc = app.pixelColor
+for i = 1, #sprite.cels do
+  cel = sprite.cels[i]
+  image = cel.image
 
-for y = 0, iBounds.height - 1 do
-  for x = 0, iBounds.width - 1 do
-    local colors = {
-      R = pc.rgba(pc.rgbaR(imgData[y + 1][x + 1]), 0, 0),
-      G = pc.rgba(0, pc.rgbaG(imgData[y + 1][x + 1]), 0),
-      B = pc.rgba(0, 0, pc.rgbaB(imgData[y + 1][x + 1])),
-      K = pc.rgba(0, 0, 0)
-    }
-    image:drawPixel(x * 3 + 0, y * 3 + 0, colors[buttons[1]])
-    image:drawPixel(x * 3 + 1, y * 3 + 0, colors[buttons[2]])
-    image:drawPixel(x * 3 + 2, y * 3 + 0, colors[buttons[3]])
-    image:drawPixel(x * 3 + 0, y * 3 + 1, colors[buttons[4]])
-    image:drawPixel(x * 3 + 1, y * 3 + 1, colors[buttons[5]])
-    image:drawPixel(x * 3 + 2, y * 3 + 1, colors[buttons[6]])
-    image:drawPixel(x * 3 + 0, y * 3 + 2, colors[buttons[7]])
-    image:drawPixel(x * 3 + 1, y * 3 + 2, colors[buttons[8]])
-    image:drawPixel(x * 3 + 2, y * 3 + 2, colors[buttons[9]])
+  for y = 0, iBounds.height - 1 do
+    for x = 0, iBounds.width - 1 do
+      local colors = {
+        R = pc.rgba(pc.rgbaR(imgData[i][y + 1][x + 1]), 0, 0),
+        G = pc.rgba(0, pc.rgbaG(imgData[i][y + 1][x + 1]), 0),
+        B = pc.rgba(0, 0, pc.rgbaB(imgData[i][y + 1][x + 1])),
+        K = pc.rgba(0, 0, 0)
+      }
+      image:drawPixel(x * 3 + 0, y * 3 + 0, colors[buttons[1]])
+      image:drawPixel(x * 3 + 1, y * 3 + 0, colors[buttons[2]])
+      image:drawPixel(x * 3 + 2, y * 3 + 0, colors[buttons[3]])
+      image:drawPixel(x * 3 + 0, y * 3 + 1, colors[buttons[4]])
+      image:drawPixel(x * 3 + 1, y * 3 + 1, colors[buttons[5]])
+      image:drawPixel(x * 3 + 2, y * 3 + 1, colors[buttons[6]])
+      image:drawPixel(x * 3 + 0, y * 3 + 2, colors[buttons[7]])
+      image:drawPixel(x * 3 + 1, y * 3 + 2, colors[buttons[8]])
+      image:drawPixel(x * 3 + 2, y * 3 + 2, colors[buttons[9]])
+    end
   end
 end
+
