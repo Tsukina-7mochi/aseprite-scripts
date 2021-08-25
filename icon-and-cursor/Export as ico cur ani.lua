@@ -104,6 +104,29 @@ function packBits(arr)
   return result
 end
 
+-- get RGB value of pixel
+function getRGB(pixel, colorMode)
+  local color = { r = 0, g = 0, b = 0, a = 0 }
+  if colorMode == ColorMode.RGB then
+    color.r = app.pixelColor.rgbaR(pixel)
+    color.g = app.pixelColor.rgbaG(pixel)
+    color.b = app.pixelColor.rgbaB(pixel)
+    color.a = app.pixelColor.rgbaA(pixel)
+  elseif colorMode == ColorMode.GRAY then
+    color.r = app.pixelColor.grayaV(pixel)
+    color.g = app.pixelColor.grayaV(pixel)
+    color.b = app.pixelColor.grayaV(pixel)
+    color.a = app.pixelColor.grayaA(pixel)
+  elseif colorMode == ColorMode.INDEXED then
+    local c = sprite.palettes[1]:getColor(pixel)
+    color.r = c.red
+    color.g = c.green
+    color.b = c.blue
+    color.a = c.alpha
+  end
+  return color
+end
+
 -- shows alert with failure message
 function failAlert(text)
   app.alert{
@@ -115,15 +138,6 @@ end
 
 
 
--- export file header
--- file: file
--- type: 1 if icon, 2 if cursor
--- count: number of image
-function exportFileHeader(file, type, num)
-  write(file, 2, 0)
-  write(file, 2, type)
-  write(file, 2, num)
-end
 
 
 ------------------------------
@@ -135,11 +149,13 @@ if app.apiVersion < 1 then
   return
 end
 
-local sprite = app.activeSprite
-if not sprite then
+if not app.activeSprite then
   failAlert("No sprite selected.")
   return
 end
+local sprite = Sprite(app.activeSprite)
+-- sprite:flatten()
+local layer = sprite.layers[1]
 
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
 local file = io.open(filename, "wb")
@@ -148,7 +164,59 @@ if not file then
   return
 end
 
-exportFileHeader(file, 1, 1)
+local dpi = 96
+
+---- FILE HEADER
+local writeFileHeader = function(data)
+  write(file, 2, 0)
+  write(file, 2, data.resourceType)
+  write(file, 2, data.resourceCount)
+end
+writeFileHeader{
+  -- 1: icon, 2: cursor
+  resourceType = 1,
+  resourceCount = #sprite.frames,
+}
+
+-- ICON
+-- cache icon data because icon info header requires offset to
+-- corresponding icon data
+local icons = {}
+
+for _, frame in ipares(sprite.frames) do
+  -- make pallet of frame
+  local pallet = {}
+  local image = layer:cel(frame.frameNumber).image
+
+  for x = 0, image.width - 1 do
+    for y = 0, image.height - 1 do
+      local pixel = getRGB(image:getPixel(x, y), image.colorMode)
+      local color = pixel.r << 16 + pixel.g << 8 + pixel.b
+      pallet[color] = true
+    end
+  end
+
+
+  local infoHeader = {
+    width = sprite.width,
+    height = sprite.height,
+    colorCount = #pallet,
+    bitmapSize = -1,             -- deside later
+    bitmapOffset = -1            -- deside later
+  }
+  local bitmapInfoHeader = {
+    headerSize = 40,
+    width = sprite.width,
+    height = sprite.height,
+    planes = 1,
+    pixelSize = 8,
+    compression = 1,              -- RLE
+    bitmapSize = -1,             -- deside later
+    resolution = dpi * 39.375,
+    colorCount = #pallet,
+    imporantColorCount = 0
+  }
+end
 
 file:close()
 
