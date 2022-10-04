@@ -1,5 +1,4 @@
 -- applys filter like LCD
--- DO NOT redistribute this code
 --
 -- see: https://github.com/Tsukina-7mochi/aseprite-scripts
 ------------------------------------------------------------
