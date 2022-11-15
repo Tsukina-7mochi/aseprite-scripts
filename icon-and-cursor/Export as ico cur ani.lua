@@ -297,38 +297,6 @@ setmetatable(byteStreamBuffer, {
 })
 ---------- byteStreamBuffer library ----------
 
--- get RGB value of pixel
-function getRGB(pixel, colorMode)
-  local color = { r = 0, g = 0, b = 0, a = 0 }
-  if colorMode == ColorMode.RGB then
-    color.r = app.pixelColor.rgbaR(pixel)
-    color.g = app.pixelColor.rgbaG(pixel)
-    color.b = app.pixelColor.rgbaB(pixel)
-    color.a = app.pixelColor.rgbaA(pixel)
-  elseif colorMode == ColorMode.GRAY then
-    color.r = app.pixelColor.grayaV(pixel)
-    color.g = app.pixelColor.grayaV(pixel)
-    color.b = app.pixelColor.grayaV(pixel)
-    color.a = app.pixelColor.grayaA(pixel)
-  elseif colorMode == ColorMode.INDEXED then
-    local c = sprite.palettes[1]:getColor(pixel)
-    color.r = c.red
-    color.g = c.green
-    color.b = c.blue
-    color.a = c.alpha
-  end
-  return color
-end
-
--- get pixel color of cel
-function getCelColor(cel, x, y)
-    local image = cel.image
-    local bounds = cel.bounds
-    if bounds.x <= x and x < bounds.x + bounds.width and bounds.y <= y and y < bounds.y + bounds.height then
-        return image:getPixel(x - bounds.x, y - bounds.y)
-    end
-end
-
 -- shows alert with failure message
 function failAlert(text)
   app.alert{
@@ -347,17 +315,74 @@ end
 ------------------------------
 
 if app.apiVersion < 1 then
-  failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
-  return
+    failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
+    return
 end
 
 if not app.activeSprite then
-  failAlert("No sprite selected.")
-  return
+    failAlert("No sprite selected.")
+    return
 end
 local sprite = Sprite(app.activeSprite)
--- sprite:flatten()
-local layer = sprite.layers[1]
+sprite:flatten()
+
+local targetCels = sprite.cels
+local dpi = 96
+local iconInfoHeaderSize = 16
+local bitmapInfoHeaderSize = 40
+local usePalette = (sprite.colorMode == ColorMode.Indexed and #sprite.palette < 256)
+local paletteSize = 0
+if usePalette then
+    paletteSize = #sprite.palette
+end
+
+local images = {}
+for i, cel in ipairs(targetCels) do
+    local colorData = byteStreamBuffer()
+    local left = cel.bounds.x
+    local top = cel.bounds.y
+    local right = cel.bounds.x + cel.bounds.width - 1
+    local bottom = cel.bounds.y + cel.bounds.height - 1
+
+    if left < 0 then left = 0 end
+    if top < 0 then top = 0 end
+    if right >= sprite.width then right = sprite.width - 1 end
+    if bottom >= sprite.height then bottom = sprite.height - 1 end
+
+    for i = bottom, sprite.height - 1 do
+        colorData:appendMultiByteLE(0, sprite.width)
+    end
+
+    for y = bottom, top, -1 do
+        colorData:appendMultiByteLE(0, left)
+
+        for x = left, right do
+            color = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
+            if usePalette then
+                -- use color palette
+                colorData:appendByte(color)
+            elseif cel.image.colorMode == ColorMode.GRAY then
+                colorData:appendByte(app.pixelColor.grayaV(color))
+                colorData:appendByte(app.pixelColor.grayaV(color))
+                colorData:appendByte(app.pixelColor.grayaV(color))
+            elseif cel.image.colorMode == ColorMode.RGB then
+                colorData:appendByte(app.pixelColor.rgbaR(color))
+                colorData:appendByte(app.pixelColor.rgbaG(color))
+                colorData:appendByte(app.pixelColor.rgbaB(color))
+            end
+        end
+
+        colorData:appendMultiByteLE(0, sprite.width - 1 - right)
+    end
+
+    for i = 0, top do
+        colorData:appendMultiByteLE(0, sprite.width)
+    end
+
+    images[i] = data
+end
+
+local data = byteStreamBuffer()
 
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
 local file = io.open(filename, "wb")
@@ -366,24 +391,37 @@ if not file then
   return
 end
 
-local targetCels = sprite.cels
-local dpi = 96
-
-local data = byteStreamBuffer()
-
 -- file header
 ---- reserved
 data:appendMultiByteLE(0, 2)
 ---- resource type (1: icon / 2: cursor)
 data:appendMultiByteLE(1, 2)
 ---- number of images
-data:appendMultiByteLE(#targetCels, 2)
+data:appendMultiByteLE(#targetFrames, 2)
 
 -- icon header
 -- record offset of icon header to update info later
 local iconHeaderOffsets = {}
-for index, cel in ipairs(targetCels) do
+for index, frame in ipairs(targetFrames) do
     iconHeaderOffsets[index] = #data
-    ---- width
-    data:append()
+    ---- width and height
+    data:append(sprite.width)
+    data:append(sprite.height)
+    ---- color count
+    if #palette < 256 then
+        data:append(#palette)
+    else
+        data:append(0)
+    end
+    ---- resevered
+    data:append(0)
+    ---- hotspot x, y for cursor, reserverd for ico
+    data:appendMultiByteLE(0, 2)
+    data:appendMultiByteLE(0, 2)
+    ---- icon data size, deside later
+    if usePalette then
+        bitmapInfoHeaderSize + paletteSize * 4 +
+    data:appendMultiByteLE(0, 4)
+    ---- offset until bitmap info header, deside later
+    data:appendMultiByteLE(0, 4)
 end
