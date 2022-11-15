@@ -306,10 +306,6 @@ function failAlert(text)
   }
 end
 
-
-
-
-
 ------------------------------
 -- ENTRY
 ------------------------------
@@ -328,68 +324,107 @@ sprite:flatten()
 
 local targetCels = sprite.cels
 local dpi = 96
+local fileHeaderSize = 6
 local iconInfoHeaderSize = 16
 local bitmapInfoHeaderSize = 40
-local usePalette = (sprite.colorMode == ColorMode.Indexed and #sprite.palette < 256)
-local paletteSize = 0
-if usePalette then
-    paletteSize = #sprite.palette
+
+local transparent = { r=0, g=0, b=0, a=0 }
+function getColorSpriteSpace(x, y, cel)
+    if x < cel.bounds.x then
+        return transparent
+    end
+    if y < cel.bounds.y then
+        return transparent
+    end
+    if x >= cel.bounds.x + cel.bounds.width then
+        return transparent
+    end
+    if y >= cel.bounds.y + cel.bounds.height then
+        return transparent
+    end
+
+    pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
+    if cel.image.colorMode == ColorMode.RGB then
+        return {
+            r=app.pixelColor.rgbaR(pixel),
+            g=app.pixelColor.rgbaG(pixel),
+            b=app.pixelColor.rgbaB(pixel),
+            a=app.pixelColor.rgbaA(pixel)
+        }
+    elseif cel.image.colorMode == ColorMode.GRAY then
+        return {
+            r=app.pixelColor.grayaV(color),
+            g=app.pixelColor.grayaV(color),
+            b=app.pixelColor.grayaV(color),
+            a=app.pixelColor.grayaA(color)
+        }
+    elseif cel.image.colorMode == ColorMode.INDEXED then
+        local c = sprite.palettes[1]:getColor(pixel)
+        return {
+            r=c.red,
+            g=c.green,
+            b=c.blue,
+            a=c.alpha
+        }
+    end
+
+    return transparent
 end
 
 local images = {}
 for i, cel in ipairs(targetCels) do
     local colorData = byteStreamBuffer()
-    local left = cel.bounds.x
-    local top = cel.bounds.y
-    local right = cel.bounds.x + cel.bounds.width - 1
-    local bottom = cel.bounds.y + cel.bounds.height - 1
+    local maskData = byteStreamBuffer()
+    local mask = 0
+    local maskCount = 0
 
-    if left < 0 then left = 0 end
-    if top < 0 then top = 0 end
-    if right >= sprite.width then right = sprite.width - 1 end
-    if bottom >= sprite.height then bottom = sprite.height - 1 end
+    for y = sprite.height - 1, 0, -1 do
+        mask = 0
+        maskCount = 0
 
-    for i = bottom, sprite.height - 1 do
-        colorData:appendMultiByteLE(0, sprite.width)
-    end
+        for x = 0, sprite.width - 1 do
+            local color = getColorSpriteSpace(x, y, cel)
+            colorData:appendByte(color.b)
+            colorData:appendByte(color.g)
+            colorData:appendByte(color.r)
+            colorData:appendByte(0)
+            local alphaFlag = 0
+            if color.a == 0 then
+                alphaFlag = 1
+            end
 
-    for y = bottom, top, -1 do
-        colorData:appendMultiByteLE(0, left)
-
-        for x = left, right do
-            color = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
-            if usePalette then
-                -- use color palette
-                colorData:appendByte(color)
-            elseif cel.image.colorMode == ColorMode.GRAY then
-                colorData:appendByte(app.pixelColor.grayaV(color))
-                colorData:appendByte(app.pixelColor.grayaV(color))
-                colorData:appendByte(app.pixelColor.grayaV(color))
-            elseif cel.image.colorMode == ColorMode.RGB then
-                colorData:appendByte(app.pixelColor.rgbaR(color))
-                colorData:appendByte(app.pixelColor.rgbaG(color))
-                colorData:appendByte(app.pixelColor.rgbaB(color))
+            mask = mask << 1 | alphaFlag
+            maskCount = maskCount + 1
+            if maskCount == 8 then
+                maskData:appendByte(mask)
+                mask = 0
+                maskCount = 0
             end
         end
 
-        colorData:appendMultiByteLE(0, sprite.width - 1 - right)
+        if maskCount ~= 0 then
+            maskData:appendByte(mask << (8 - maskCount))
+        end
+
+        if #colorData % 4 ~= 0 then
+            colorData:appendMultiByteLE(0, 4 - #colorData % 4)
+        end
+        if #maskData % 4 ~= 0 then
+            maskData:appendMultiByteLE(0, 4 - #maskData % 4)
+        end
     end
 
-    for i = 0, top do
-        colorData:appendMultiByteLE(0, sprite.width)
-    end
-
-    images[i] = data
+    images[i] = {
+        color=colorData,
+        mask=maskData
+    }
 end
 
-local data = byteStreamBuffer()
+-- print(images[1].color)
+-- print(images[1].mask)
 
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
-local file = io.open(filename, "wb")
-if not file then
-  failAlert("Failed to open the file to export.")
-  return
-end
+local data = byteStreamBuffer()
 
 -- file header
 ---- reserved
@@ -397,31 +432,83 @@ data:appendMultiByteLE(0, 2)
 ---- resource type (1: icon / 2: cursor)
 data:appendMultiByteLE(1, 2)
 ---- number of images
-data:appendMultiByteLE(#targetFrames, 2)
+data:appendMultiByteLE(#targetCels, 2)
 
 -- icon header
 -- record offset of icon header to update info later
-local iconHeaderOffsets = {}
-for index, frame in ipairs(targetFrames) do
-    iconHeaderOffsets[index] = #data
+local offsetAddresses = {}
+for index, frame in ipairs(targetCels) do
     ---- width and height
-    data:append(sprite.width)
-    data:append(sprite.height)
+    data:appendByte(sprite.width)
+    data:appendByte(sprite.height)
     ---- color count
-    if #palette < 256 then
-        data:append(#palette)
-    else
-        data:append(0)
-    end
+    data:appendByte(0)
     ---- resevered
-    data:append(0)
+    data:appendByte(0)
     ---- hotspot x, y for cursor, reserverd for ico
     data:appendMultiByteLE(0, 2)
     data:appendMultiByteLE(0, 2)
-    ---- icon data size, deside later
-    if usePalette then
-        bitmapInfoHeaderSize + paletteSize * 4 +
-    data:appendMultiByteLE(0, 4)
+    ---- icon data size
+    dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask
+    data:appendMultiByteLE(dataSize, 4)
     ---- offset until bitmap info header, deside later
+    offsetAddresses[index] = #data
     data:appendMultiByteLE(0, 4)
 end
+
+-- each icon (or cursor)
+for index, frame in ipairs(targetCels) do
+    -- set offset in icon header
+    data[offsetAddresses[index] + 1] = #data
+
+    -- bitmap info header
+    data:appendMultiByteLE(bitmapInfoHeaderSize, 4)
+    -- width and height
+    -- NOTE: why the height doubled?
+    data:appendMultiByteLE(sprite.width, 4)
+    data:appendMultiByteLE(sprite.height * 2, 4)
+    -- planes
+    data:appendMultiByteLE(1, 2)
+    -- bit per pixel: 32bit
+    data:appendMultiByteLE(32, 2)
+    -- compression: 0 (BI_RGB)
+    data:appendMultiByteLE(0, 4)
+    -- image size
+    -- NOTE: is it correct?
+    data:appendMultiByteLE(#images[index].color, 4)
+    -- pixel per meter, horizontal and vertical
+    data:appendMultiByteLE(0, 4)
+    data:appendMultiByteLE(0, 4)
+    -- N of pallets
+    data:appendMultiByteLE(0, 4)
+    -- N of important colors
+    data:appendMultiByteLE(0, 4)
+
+    -- there is no palettes
+
+    -- pixel data
+    data:appendByteStreamBuffer(images[index].color)
+
+    -- mask data data
+    data:appendByteStreamBuffer(images[index].mask)
+end
+
+sprite:close()
+
+local file = io.open(filename, "wb")
+if not file then
+  failAlert("Failed to open the file to export.")
+  return
+end
+
+for i = 1, #data do
+    file:write(string.format("%c", data[i]))
+end
+
+file:close()
+
+-- app.alert{
+--     title = "Export Finished",
+--     text = "File is exported successfully.",
+--     buttons = "OK"
+-- }
