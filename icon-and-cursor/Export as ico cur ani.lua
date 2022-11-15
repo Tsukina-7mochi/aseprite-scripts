@@ -423,9 +423,153 @@ end
 -- print(images[1].color)
 -- print(images[1].mask)
 
-
-
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
+local frameList = {"All"}
+for i = 1, #sprite.frames do
+  table.insert(frameList, "" .. i)
+end
+local showCompleated = true
+local fileTypes = { "ico", "cur", "ani" }
+local paramTypes = {
+    icoSeparator={ "ico" },
+    curSeparator={ "cur" },
+    aniSeparator={ "ani" },
+    hotSpotX={ "cur", "ani" },
+    hotSpotY={ "cur", "ani" },
+    frame={ "ico", "cur" },
+    framerate={ "ani" }
+}
+
+local dialog = Dialog()
+dialog:combobox{
+    id="filetype",
+    label="Type",
+    option=fileTypes[1],
+    options=fileTypes,
+    onchange=function()
+        filename = app.fs.filePathAndTitle(dialog.data.filename) .. "." .. dialog.data.filetype
+        dialog:modify{
+            id="filename",
+            filename=filename
+        }
+
+        for id, param in pairs(paramTypes) do
+            visible = false
+            for _, p in ipairs(param) do
+                if p == dialog.data.filetype then
+                    visible = true
+                end
+            end
+            dialog:modify{
+                id=id,
+                visible=visible
+            }
+        end
+    end
+}:file{
+    id="filename",
+    label="Filename",
+    title="Export as...",
+    save=true,
+    filename=filename,
+    filetypes="ico",
+    onchange=function()
+        fileNameEdited = true
+    end
+}:separator{
+    id="icoSeparator",
+    text=".ico file option"
+}:separator{
+    id="curSeparator",
+    text=".cur file option"
+}:separator{
+    id="aniSeparator",
+    text=".ani file option"
+}:combobox{
+    id="frame",
+    label="Frame",
+    option=frameList[2],
+    options=frameList
+}:number{
+    id="hotSpotX",
+    label="HotSpot",
+    text="0",
+    onchange=function()
+        num = dialog.data.hotSpotX
+        if num < 0 then
+            num = 0
+        elseif num >= sprite.width then
+            num = sprite.width - 1
+        end
+
+        dialog:modify{
+            id="hotSpotX",
+            text=num
+        }
+    end
+}:number{
+    id="hotSpotY",
+    text="0",
+    onchange=function()
+        num = dialog.data.hotSpotY
+        if num < 0 then
+            num = 0
+        elseif num >= sprite.width then
+            num = sprite.width - 1
+        end
+
+        dialog:modify{
+            id="hotSpotY",
+            text=num
+        }
+    end
+}:number{
+    id="framerate",
+    label="Framerate (1/60s)",
+    text="60",
+    onchange=function()
+        num = dialog.data.framerate
+        if num < 0 then
+            num = 0
+        end
+
+        dialog:modify{
+            id="framerate",
+            text=num
+        }
+    end
+}:check{
+    id="showCompleated",
+    label="",
+    text="Show dialog when succeeded",
+    selected=showCompleated
+}:button{
+    id="ok",
+    text="&Export",
+    focus=true
+}:button{
+    id="cancel",
+    text="&Cancel"
+}
+
+for id, param in pairs(paramTypes) do
+    visible = false
+    for _, p in ipairs(param) do
+        if p == dialog.data.filetype then
+            visible = true
+        end
+    end
+    dialog:modify{
+        id=id,
+        visible=visible
+    }
+end
+
+dialog:show()
+
+sprite:close()
+if true then return end
+
 local data = byteStreamBuffer()
 
 -- file header
