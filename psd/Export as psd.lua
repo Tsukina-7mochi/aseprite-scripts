@@ -1,5 +1,4 @@
 -- export as psd file
--- DO NOT redistribute this code
 --
 -- see: https://github.com/Tsukina-7mochi/aseprite-scripts
 ------------------------------------------------------------
