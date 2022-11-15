@@ -1,5 +1,4 @@
 -- applies smoothing filter
--- DO NOT redistribute this code
 --
 -- see: https://github.com/Tsukina-7mochi/aseprite-scripts
 ------------------------------------------------------------
