@@ -423,6 +423,8 @@ end
 -- print(images[1].color)
 -- print(images[1].mask)
 
+
+
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
 local data = byteStreamBuffer()
 
@@ -459,7 +461,12 @@ end
 -- each icon (or cursor)
 for index, frame in ipairs(targetCels) do
     -- set offset in icon header
-    data[offsetAddresses[index] + 1] = #data
+    offset = byteStreamBuffer()
+    offset:appendMultiByteLE(#data, 4)
+    data[offsetAddresses[index] + 1] = offset[1]
+    data[offsetAddresses[index] + 2] = offset[2]
+    data[offsetAddresses[index] + 3] = offset[3]
+    data[offsetAddresses[index] + 4] = offset[4]
 
     -- bitmap info header
     data:appendMultiByteLE(bitmapInfoHeaderSize, 4)
