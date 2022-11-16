@@ -323,112 +323,11 @@ local sprite = Sprite(app.activeSprite)
 sprite:flatten()
 
 local targetCels = sprite.cels
-local dpi = 96
-local fileHeaderSize = 6
-local iconInfoHeaderSize = 16
-local bitmapInfoHeaderSize = 40
 
-local transparent = { r=0, g=0, b=0, a=0 }
-function getColorSpriteSpace(x, y, cel)
-    if x < cel.bounds.x then
-        return transparent
-    end
-    if y < cel.bounds.y then
-        return transparent
-    end
-    if x >= cel.bounds.x + cel.bounds.width then
-        return transparent
-    end
-    if y >= cel.bounds.y + cel.bounds.height then
-        return transparent
-    end
-
-    pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
-    if cel.image.colorMode == ColorMode.RGB then
-        return {
-            r=app.pixelColor.rgbaR(pixel),
-            g=app.pixelColor.rgbaG(pixel),
-            b=app.pixelColor.rgbaB(pixel),
-            a=app.pixelColor.rgbaA(pixel)
-        }
-    elseif cel.image.colorMode == ColorMode.GRAY then
-        return {
-            r=app.pixelColor.grayaV(color),
-            g=app.pixelColor.grayaV(color),
-            b=app.pixelColor.grayaV(color),
-            a=app.pixelColor.grayaA(color)
-        }
-    elseif cel.image.colorMode == ColorMode.INDEXED then
-        local c = sprite.palettes[1]:getColor(pixel)
-        return {
-            r=c.red,
-            g=c.green,
-            b=c.blue,
-            a=c.alpha
-        }
-    end
-
-    return transparent
-end
-
-local images = {}
-for i, cel in ipairs(targetCels) do
-    local colorData = byteStreamBuffer()
-    local maskData = byteStreamBuffer()
-    local mask = 0
-    local maskCount = 0
-
-    for y = sprite.height - 1, 0, -1 do
-        mask = 0
-        maskCount = 0
-
-        for x = 0, sprite.width - 1 do
-            local color = getColorSpriteSpace(x, y, cel)
-            colorData:appendByte(color.b)
-            colorData:appendByte(color.g)
-            colorData:appendByte(color.r)
-            colorData:appendByte(0)
-            local alphaFlag = 0
-            if color.a == 0 then
-                alphaFlag = 1
-            end
-
-            mask = mask << 1 | alphaFlag
-            maskCount = maskCount + 1
-            if maskCount == 8 then
-                maskData:appendByte(mask)
-                mask = 0
-                maskCount = 0
-            end
-        end
-
-        if maskCount ~= 0 then
-            maskData:appendByte(mask << (8 - maskCount))
-        end
-
-        if #colorData % 4 ~= 0 then
-            colorData:appendMultiByteLE(0, 4 - #colorData % 4)
-        end
-        if #maskData % 4 ~= 0 then
-            maskData:appendMultiByteLE(0, 4 - #maskData % 4)
-        end
-    end
-
-    images[i] = {
-        color=colorData,
-        mask=maskData
-    }
-end
-
--- print(images[1].color)
--- print(images[1].mask)
-
-local filename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
 local frameList = {"All"}
 for i = 1, #sprite.frames do
   table.insert(frameList, "" .. i)
 end
-local showCompleated = true
 local fileTypes = { "ico", "cur", "ani" }
 local paramTypes = {
     icoSeparator={ "ico" },
@@ -441,37 +340,45 @@ local paramTypes = {
 }
 
 local dialog = Dialog()
+function updateDialogElementVisibility()
+    for id, param in pairs(paramTypes) do
+        visible = false
+        for _, p in ipairs(param) do
+            if p == dialog.data.filetype then
+                visible = true
+            end
+        end
+        dialog:modify{
+            id=id,
+            visible=visible
+        }
+    end
+end
+
 dialog:combobox{
     id="filetype",
     label="Type",
     option=fileTypes[1],
     options=fileTypes,
     onchange=function()
-        filename = app.fs.filePathAndTitle(dialog.data.filename) .. "." .. dialog.data.filetype
+        -- update extension of filename
+        filename = app.fs.filePathAndTitle(dialog.data.filename)
+        filename = filename .. "." .. dialog.data.filetype
+
         dialog:modify{
             id="filename",
             filename=filename
         }
+        -- update visibility of each dialog element
 
-        for id, param in pairs(paramTypes) do
-            visible = false
-            for _, p in ipairs(param) do
-                if p == dialog.data.filetype then
-                    visible = true
-                end
-            end
-            dialog:modify{
-                id=id,
-                visible=visible
-            }
-        end
+        updateDialogElementVisibility()
     end
 }:file{
     id="filename",
     label="Filename",
     title="Export as...",
     save=true,
-    filename=filename,
+    filename=app.fs.filePathAndTitle(sprite.filename) .. ".ico",
     filetypes="ico",
     onchange=function()
         fileNameEdited = true
@@ -542,7 +449,7 @@ dialog:combobox{
     id="showCompleated",
     label="",
     text="Show dialog when succeeded",
-    selected=showCompleated
+    selected=true
 }:button{
     id="ok",
     text="&Export",
@@ -552,96 +459,196 @@ dialog:combobox{
     text="&Cancel"
 }
 
-for id, param in pairs(paramTypes) do
-    visible = false
-    for _, p in ipairs(param) do
-        if p == dialog.data.filetype then
-            visible = true
-        end
-    end
-    dialog:modify{
-        id=id,
-        visible=visible
-    }
-end
+updateDialogElementVisibility()
 
 dialog:show()
 
 sprite:close()
+
 if true then return end
+-- if dialog.data.ok then return end
 
-local data = byteStreamBuffer()
+local filetype = dialog.data.filetype
+local filename = dialog.data.filename
+local frame = dialog.data.frame
+local hotSpotX = dialog.data.hotSoptX
+local hotSpotY = dialog.data.hotSpotY
+local framerate = dialog.data.framerate
+local showCompleated = dialog.data.showCompleated
 
--- file header
----- reserved
-data:appendMultiByteLE(0, 2)
----- resource type (1: icon / 2: cursor)
-data:appendMultiByteLE(1, 2)
----- number of images
-data:appendMultiByteLE(#targetCels, 2)
+local dpi = 96
+local fileHeaderSize = 6
+local iconInfoHeaderSize = 16
+local bitmapInfoHeaderSize = 40
 
--- icon header
--- record offset of icon header to update info later
-local offsetAddresses = {}
-for index, frame in ipairs(targetCels) do
-    ---- width and height
-    data:appendByte(sprite.width)
-    data:appendByte(sprite.height)
-    ---- color count
-    data:appendByte(0)
-    ---- resevered
-    data:appendByte(0)
-    ---- hotspot x, y for cursor, reserverd for ico
-    data:appendMultiByteLE(0, 2)
-    data:appendMultiByteLE(0, 2)
-    ---- icon data size
-    dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask
-    data:appendMultiByteLE(dataSize, 4)
-    ---- offset until bitmap info header, deside later
-    offsetAddresses[index] = #data
-    data:appendMultiByteLE(0, 4)
+local transparent = { r=0, g=0, b=0, a=0 }
+function getColorSpriteSpace(x, y, cel)
+    if x < cel.bounds.x then
+        return transparent
+    end
+    if y < cel.bounds.y then
+        return transparent
+    end
+    if x >= cel.bounds.x + cel.bounds.width then
+        return transparent
+    end
+    if y >= cel.bounds.y + cel.bounds.height then
+        return transparent
+    end
+
+    pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
+    if cel.image.colorMode == ColorMode.RGB then
+        return {
+            r=app.pixelColor.rgbaR(pixel),
+            g=app.pixelColor.rgbaG(pixel),
+            b=app.pixelColor.rgbaB(pixel),
+            a=app.pixelColor.rgbaA(pixel)
+        }
+    elseif cel.image.colorMode == ColorMode.GRAY then
+        return {
+            r=app.pixelColor.grayaV(color),
+            g=app.pixelColor.grayaV(color),
+            b=app.pixelColor.grayaV(color),
+            a=app.pixelColor.grayaA(color)
+        }
+    elseif cel.image.colorMode == ColorMode.INDEXED then
+        local c = sprite.palettes[1]:getColor(pixel)
+        return {
+            r=c.red,
+            g=c.green,
+            b=c.blue,
+            a=c.alpha
+        }
+    end
+
+    return transparent
 end
 
--- each icon (or cursor)
-for index, frame in ipairs(targetCels) do
-    -- set offset in icon header
-    offset = byteStreamBuffer()
-    offset:appendMultiByteLE(#data, 4)
-    data[offsetAddresses[index] + 1] = offset[1]
-    data[offsetAddresses[index] + 2] = offset[2]
-    data[offsetAddresses[index] + 3] = offset[3]
-    data[offsetAddresses[index] + 4] = offset[4]
+function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
+    local images = {}
+    for i, cel in ipairs(targetCels) do
+        local colorData = byteStreamBuffer()
+        local maskData = byteStreamBuffer()
+        local mask = 0
+        local maskCount = 0
 
-    -- bitmap info header
-    data:appendMultiByteLE(bitmapInfoHeaderSize, 4)
-    -- width and height
-    -- NOTE: why the height doubled?
-    data:appendMultiByteLE(sprite.width, 4)
-    data:appendMultiByteLE(sprite.height * 2, 4)
-    -- planes
+        for y = sprite.height - 1, 0, -1 do
+            mask = 0
+            maskCount = 0
+
+            for x = 0, sprite.width - 1 do
+                local color = getColorSpriteSpace(x, y, cel)
+                colorData:appendByte(color.b)
+                colorData:appendByte(color.g)
+                colorData:appendByte(color.r)
+                colorData:appendByte(0)
+                local alphaFlag = 0
+                if color.a == 0 then
+                    alphaFlag = 1
+                end
+
+                mask = mask << 1 | alphaFlag
+                maskCount = maskCount + 1
+                if maskCount == 8 then
+                    maskData:appendByte(mask)
+                    mask = 0
+                    maskCount = 0
+                end
+            end
+
+            if maskCount ~= 0 then
+                maskData:appendByte(mask << (8 - maskCount))
+            end
+
+            if #colorData % 4 ~= 0 then
+                colorData:appendMultiByteLE(0, 4 - #colorData % 4)
+            end
+            if #maskData % 4 ~= 0 then
+                maskData:appendMultiByteLE(0, 4 - #maskData % 4)
+            end
+        end
+
+        images[i] = {
+            color=colorData,
+            mask=maskData
+        }
+    end
+
+    local data = byteStreamBuffer()
+
+    -- file header
+    ---- reserved
+    data:appendMultiByteLE(0, 2)
+    ---- resource type (1: icon / 2: cursor)
     data:appendMultiByteLE(1, 2)
-    -- bit per pixel: 32bit
-    data:appendMultiByteLE(32, 2)
-    -- compression: 0 (BI_RGB)
-    data:appendMultiByteLE(0, 4)
-    -- image size
-    -- NOTE: is it correct?
-    data:appendMultiByteLE(#images[index].color, 4)
-    -- pixel per meter, horizontal and vertical
-    data:appendMultiByteLE(0, 4)
-    data:appendMultiByteLE(0, 4)
-    -- N of pallets
-    data:appendMultiByteLE(0, 4)
-    -- N of important colors
-    data:appendMultiByteLE(0, 4)
+    ---- number of images
+    data:appendMultiByteLE(#targetCels, 2)
 
-    -- there is no palettes
+    -- icon header
+    -- record offset of icon header to update info later
+    local offsetAddresses = {}
+    for index, frame in ipairs(targetCels) do
+        ---- width and height
+        data:appendByte(sprite.width)
+        data:appendByte(sprite.height)
+        ---- color count
+        data:appendByte(0)
+        ---- resevered
+        data:appendByte(0)
+        ---- hotspot x, y for cursor, reserverd for ico
+        data:appendMultiByteLE(0, 2)
+        data:appendMultiByteLE(0, 2)
+        ---- icon data size
+        dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask
+        data:appendMultiByteLE(dataSize, 4)
+        ---- offset until bitmap info header, deside later
+        offsetAddresses[index] = #data
+        data:appendMultiByteLE(0, 4)
+    end
 
-    -- pixel data
-    data:appendByteStreamBuffer(images[index].color)
+    -- each icon (or cursor)
+    for index, frame in ipairs(targetCels) do
+        -- set offset in icon header
+        offset = byteStreamBuffer()
+        offset:appendMultiByteLE(#data, 4)
+        data[offsetAddresses[index] + 1] = offset[1]
+        data[offsetAddresses[index] + 2] = offset[2]
+        data[offsetAddresses[index] + 3] = offset[3]
+        data[offsetAddresses[index] + 4] = offset[4]
 
-    -- mask data data
-    data:appendByteStreamBuffer(images[index].mask)
+        -- bitmap info header
+        data:appendMultiByteLE(bitmapInfoHeaderSize, 4)
+        -- width and height
+        -- NOTE: why the height doubled?
+        data:appendMultiByteLE(sprite.width, 4)
+        data:appendMultiByteLE(sprite.height * 2, 4)
+        -- planes
+        data:appendMultiByteLE(1, 2)
+        -- bit per pixel: 32bit
+        data:appendMultiByteLE(32, 2)
+        -- compression: 0 (BI_RGB)
+        data:appendMultiByteLE(0, 4)
+        -- image size
+        -- NOTE: is it correct?
+        data:appendMultiByteLE(#images[index].color, 4)
+        -- pixel per meter, horizontal and vertical
+        data:appendMultiByteLE(0, 4)
+        data:appendMultiByteLE(0, 4)
+        -- N of pallets
+        data:appendMultiByteLE(0, 4)
+        -- N of important colors
+        data:appendMultiByteLE(0, 4)
+
+        -- there is no palettes
+
+        -- pixel data
+        data:appendByteStreamBuffer(images[index].color)
+
+        -- mask data data
+        data:appendByteStreamBuffer(images[index].mask)
+    end
+
+    return data
 end
 
 sprite:close()
