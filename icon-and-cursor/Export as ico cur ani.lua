@@ -344,6 +344,7 @@ local paramTypes = {
 
 local dialog = Dialog()
 local function updateDialogElementVisibility()
+    ---@type string
     for id, param in pairs(paramTypes) do
         local visible = false
         for _, p in ipairs(param) do
@@ -365,7 +366,7 @@ dialog:combobox{
     options=fileTypes,
     onchange=function()
         -- update extension of filename
-        local filename = app.fs.filePathAndTitle(dialog.data.filename)
+        local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
         filename = filename .. "." .. dialog.data.filetype
 
         dialog:modify{
@@ -382,7 +383,7 @@ dialog:combobox{
     title="Export as...",
     save=true,
     filename=app.fs.filePathAndTitle(sprite.filename) .. ".ico",
-    filetypes="ico"
+    filetypes={"ico"}
 }:separator{
     id="icoSeparator",
     text=".ico file option"
@@ -404,7 +405,7 @@ dialog:combobox{
     onchange=function()
         dialog:modify{
             id="hotSpotX",
-            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotX))
+            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotX --[[@as number]]))
         }
     end
 }:number{
@@ -413,7 +414,7 @@ dialog:combobox{
     onchange=function()
         dialog:modify{
             id="hotSpotY",
-            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotY))
+            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotY --[[@as number]]))
         }
     end
 }:number{
@@ -423,7 +424,7 @@ dialog:combobox{
     onchange=function()
         dialog:modify{
             id="framerate",
-            text=math.min(0, dialog.data.framerate)
+            text=math.min(0, dialog.data.framerate --[[@as number]])
         }
     end
 }:check{
