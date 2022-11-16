@@ -1,307 +1,307 @@
----------- byteStreamBuffer ----------
-byteStreamBuffer = {
+---------- ByteStreamBuffer ----------
+ByteStreamBuffer = {
     prototype = {},
     meta = {},
-    util = {}
+    util = {},
+    init = function()
+        -- returns true when v is integer
+        ByteStreamBuffer.util.isInteger = function(v)
+            return type(v) == "number" and v % 1 .. "" == "0"
+        end
+        -- returns true if v is byte number
+        ByteStreamBuffer.util.isByte = function(v)
+            return ByteStreamBuffer.util.isInteger(v) and 0 <= v and v <= 0xFF
+        end
+        -- returns true if v is ByteStreamBuffer
+        ByteStreamBuffer.util.isByteStreamBuffer = function(v)
+            return type(v) == "table" and v.array ~= nil and getmetatable(v) == ByteStreamBuffer.meta
+        end
+        -- assert with level
+        ByteStreamBuffer.util.assert = function(value, msg, level)
+            if not value then
+            error(msg, level + 1)
+            end
+            return value
+        end
+        -- check type and assert with level
+        ByteStreamBuffer.util.assertType = function(value, targetType, msgPrefix, level)
+            local assert = false
+            if targetType == "byte" then
+            assert = not ByteStreamBuffer.util.isByte(value)
+            elseif targetType == "ByteStreamBuffer" then
+            assert = not ByteStreamBuffer.util.isByteStreamBuffer(value)
+            elseif targetType == "integer" then
+            assert = not ByteStreamBuffer.util.isInteger(value)
+            else
+            assert = type(value) ~= targetType
+            end
+
+            if assert then
+            error(msgPrefix .. "(" .. targetType .. " expected, got " .. type(value) .. ")", level + 1)
+            end
+        end
+
+        -- append value
+        ByteStreamBuffer.prototype.append = function(bsb, ...)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'append' ", 2)
+
+            for i, data in ipairs({...}) do
+            if ByteStreamBuffer.util.isByte(data) then
+                bsb:appendByte(data)
+            elseif type(data) == "string" then
+                bsb:appendString(data)
+            elseif ByteStreamBuffer.util.isByteStreamBuffer(data) then
+                bsb:appendByteStreamBuffer(data)
+            else
+                error("bad argument #" .. (i + 1) .. " to append (byte, string or ByteStreamBuffer expected, got " .. type(data) .. ")")
+            end
+            end
+        end
+        -- append byte number
+        ByteStreamBuffer.prototype.appendByte = function(bsb, data)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendByte' ", 2)
+            ByteStreamBuffer.util.assertType(data, "byte", "bad argument #2 to 'appendByte' ", 2)
+
+            bsb[#bsb + 1] = data
+        end
+        -- append number in little endian
+        ByteStreamBuffer.prototype.appendMultiByteLE = function(bsb, data, size)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendMultiByteLE' ", 2)
+            ByteStreamBuffer.util.assertType(data, "integer", "bad argument #2 to 'appendMultiByteLE' ", 2)
+            ByteStreamBuffer.util.assertType(size, "integer", "bad argument #3 to 'appendMultiByteLE' ", 2)
+            ByteStreamBuffer.util.assert(size > 0, "bad argument #3 to 'appendMultiByteLE' (size must be grater than 0)", 2)
+
+            if data < 0 then
+            data = 1 << (size * 8) + data
+            end
+
+            local d = data
+            for i = 1, size do
+            bsb[#bsb + 1] = d & 0xFF
+            d = d >> 8
+            end
+        end
+        -- append number in big endian
+        ByteStreamBuffer.prototype.appendMultiByteBE = function(bsb, data, size)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendMultiByteBE' ", 2)
+            ByteStreamBuffer.util.assertType(data, "integer", "bad argument #2 to 'appendMultiByteBE' ", 2)
+            ByteStreamBuffer.util.assertType(size, "integer", "bad argument #3 to 'appendMultiByteBE' ", 2)
+            ByteStreamBuffer.util.assert(size > 0, "bad argument #3 to 'appendMultiByteBE' (size must be grater than 0)", 2)
+
+            if data < 0 then
+            data = 1 << (size * 8) + data
+            end
+
+            local mask = 0xFF << ((size - 1) * 8)
+            local shift = size - 1
+            for i = 1, size do
+            bsb[#bsb + 1] = (data & mask) >> (shift * 8)
+            mask = mask >> 8
+            shift = shift - 1
+            end
+        end
+        -- append string sa byte sequence
+        ByteStreamBuffer.prototype.appendString = function(bsb, data)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendString' ", 2)
+            ByteStreamBuffer.util.assertType(data, "string", "bad argument #2 to 'appendString' ", 2)
+
+            for _, byte in ipairs({ data:byte(1, -1) }) do
+            bsb[#bsb + 1] = byte
+            end
+        end
+        -- append string as pascal string
+        ByteStreamBuffer.prototype.appendPascalString = function(bsb, data)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendPascalString' ", 2)
+            ByteStreamBuffer.util.assertType(data, "string", "bad argument #2 to 'appendPascalString' ", 2)
+
+            bsb[#bsb + 1] = #data
+            for _, byte in ipairs({ data:byte(1, -1) }) do
+            bsb[#bsb + 1] = byte
+            end
+        end
+        -- append slice of ByteStreamBuffer
+        ByteStreamBuffer.prototype.appendByteStreamBuffer = function(bsb, bsb2)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'appendByteStreamBuffer' ", 2)
+            ByteStreamBuffer.util.assertType(bsb2, "ByteStreamBuffer", "bad argument #2 to 'appendByteStreamBuffer' ", 2)
+
+            for i = 1, #bsb2 do
+            bsb[#bsb + 1] = bsb2[i]
+            end
+        end
+        -- clear buffer
+        ByteStreamBuffer.prototype.clear = function(bsb)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'clear' ", 2)
+            bsb.array = {}
+        end
+        -- convert to string
+        ByteStreamBuffer.prototype.tostring = function(bsb)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'tostring' ", 2)
+
+            local str = ""
+            for i = 1, #bsb do
+            str = str .. string.format("%c", bsb[i])
+            end
+
+            return str
+        end
+        -- returns slice of buffer
+        ByteStreamBuffer.prototype.slice = function(bsb, startIndex, lastIndex)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'slice' ", 2)
+            ByteStreamBuffer.util.assertType(startIndex, "integer", "bad argument #2 to 'slice' ", 2)
+            ByteStreamBuffer.util.assertType(lastIndex, "integer", "bad argument #3 to 'slice' ", 2)
+
+            if startIndex < 1 then
+            startIndex = #bsb + startIndex
+            end
+            if lastIndex < 1 then
+            lastIndex = #bsb + lastIndex
+            end
+
+            local result = ByteStreamBuffer()
+            for i = startIndex, lastIndex do
+            result[#result + 1] = bsb[i]
+            end
+
+            return result
+        end
+        -- compress buffer with pack bits and return new buffer
+        ByteStreamBuffer.prototype.packBits = function(bsb)
+            ByteStreamBuffer.util.assertType(bsb, "ByteStreamBuffer", "bad argument #1 to 'packBits' ", 2)
+            if #bsb == 0 then
+            return ByteStreamBuffer()
+            end
+
+            local result = ByteStreamBuffer()
+            local buff = ByteStreamBuffer()
+            local flag = -1
+            local size = 0xFF
+
+            local i = 1
+            while i <= #bsb do
+            if flag == 0 then
+                -- continuous
+                if buff[#buff] == bsb[i] then
+                buff[#buff + 1] = bsb[i]
+                else
+                result[#result + 1] = size - (#buff - 2)
+                result[#result + 1] = buff[1]
+                buff:clear()
+                buff[1] = bsb[i]
+                flag = -1
+                end
+            elseif flag == 1 then
+                -- discontinuous
+                if buff[#buff] ~= bsb[i] then
+                buff[#buff+1] = bsb[i]
+                else
+                result[#result+1] = #buff - 2
+                result:appendByteStreamBuffer(buff, 1, -1)
+                buff:clear()
+                buff[1] = bsb[i]
+                buff[2] = bsb[i]
+                flag = 0
+                end
+            else
+                -- undetermined
+                if #buff ~= 0 then
+                if buff[#buff] == bsb[i] then
+                    flag = 0
+                else
+                    flag = 1
+                end
+                end
+                buff[#buff+1] = bsb[i]
+            end
+
+            if #buff > size/2 then
+                if flag == 0 then
+                result[#result+1] = size - (#buff - 2)
+                result[#result+1] = buff[1]
+                else
+                result[#result+1] = #buff - 1
+                result:appendByteStreamBuffer(buff)
+                end
+                buff = {}
+                flag = -1
+            end
+
+            i = i + 1
+            end
+
+            if #buff ~= 0 then
+            if flag == 0 then
+                result[#result+1] = size - (#buff - 2)
+                result[#result+1] = buff[1]
+            else
+                result[#result+1] = #buff - 1
+                result.appendByteStreamBuffer(buff)
+            end
+            end
+
+            return result
+        end
+
+        ByteStreamBuffer.meta.__index = function(bsb, index)
+            if ByteStreamBuffer.util.isInteger(index) then
+            return bsb.array[index]
+            else
+            return ByteStreamBuffer.prototype[index]
+            end
+        end
+        ByteStreamBuffer.meta.__newindex = function(bsb, index, value)
+            if not ByteStreamBuffer.util.isByte(value) then
+            error("Value must be byte number, got " .. value, 2)
+            end
+            if ByteStreamBuffer.util.isInteger(index) then
+            bsb.array[index] = value
+            end
+        end
+        ByteStreamBuffer.meta.__len = function(bsb)
+            return #bsb.array
+        end
+        ByteStreamBuffer.meta.__tostring = function(bsb)
+            local str = "ByteStreamBuffer[" .. #bsb.array .. "] { "
+
+            for i = 1, #bsb.array do
+            if i ~= 1 then
+                str = str .. ", "
+            end
+            str = str .. bsb.array[i]
+            end
+
+            str = str .. " }"
+            return str
+        end
+        ByteStreamBuffer.meta.__concat = function(bsb1, bsb2)
+            local bsb = ByteStreamBuffer()
+            for i = 1, #bsb1 do
+            bsb.array[#bsb.array + 1] = bsb1[i]
+            end
+            for i = 1, #bsb2 do
+            bsb.array[#bsb.array + 1] = bsb2[i]
+            end
+            return bsb
+        end
+
+        setmetatable(ByteStreamBuffer, {
+            __call = function()
+            -- create new ByteStreamBuffer
+            local bsb = {
+                array = {}
+            }
+            setmetatable(bsb, ByteStreamBuffer.meta)
+
+            return bsb
+            end
+        })
+    end
 }
 
-function initByteStreamBuffer()
-    -- returns true when v is integer
-    byteStreamBuffer.util.isInteger = function(v)
-        return type(v) == "number" and v % 1 .. "" == "0"
-    end
-    -- returns true if v is byte number
-    byteStreamBuffer.util.isByte = function(v)
-        return byteStreamBuffer.util.isInteger(v) and 0 <= v and v <= 0xFF
-    end
-    -- returns true if v is byteStreamBuffer
-    byteStreamBuffer.util.isbyteStreamBuffer = function(v)
-        return type(v) == "table" and v.array ~= nil and getmetatable(v) == byteStreamBuffer.meta
-    end
-    -- assert with level
-    byteStreamBuffer.util.assert = function(value, msg, level)
-        if not value then
-        error(msg, level + 1)
-        end
-        return value
-    end
-    -- check type and assert with level
-    byteStreamBuffer.util.assertType = function(value, targetType, msgPrefix, level)
-        local assert = false
-        if targetType == "byte" then
-        assert = not byteStreamBuffer.util.isByte(value)
-        elseif targetType == "byteStreamBuffer" then
-        assert = not byteStreamBuffer.util.isbyteStreamBuffer(value)
-        elseif targetType == "integer" then
-        assert = not byteStreamBuffer.util.isInteger(value)
-        else
-        assert = type(value) ~= targetType
-        end
-
-        if assert then
-        error(msgPrefix .. "(" .. targetType .. " expected, got " .. type(value) .. ")", level + 1)
-        end
-    end
-
-    -- append value
-    byteStreamBuffer.prototype.append = function(bsb, ...)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'append' ", 2)
-
-        for i, data in ipairs({...}) do
-        if byteStreamBuffer.util.isByte(data) then
-            bsb:appendByte(data)
-        elseif type(data) == "string" then
-            bsb:appendString(data)
-        elseif byteStreamBuffer.util.isbyteStreamBuffer(data) then
-            bsb:appendByteStreamBuffer(data)
-        else
-            error("bad argument #" .. (i + 1) .. " to append (byte, string or byteStreamBuffer expected, got " .. type(data) .. ")")
-        end
-        end
-    end
-    -- append byte number
-    byteStreamBuffer.prototype.appendByte = function(bsb, data)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendByte' ", 2)
-        byteStreamBuffer.util.assertType(data, "byte", "bad argument #2 to 'appendByte' ", 2)
-
-        bsb[#bsb + 1] = data
-    end
-    -- append number in little endian
-    byteStreamBuffer.prototype.appendMultiByteLE = function(bsb, data, size)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendMultiByteLE' ", 2)
-        byteStreamBuffer.util.assertType(data, "integer", "bad argument #2 to 'appendMultiByteLE' ", 2)
-        byteStreamBuffer.util.assertType(size, "integer", "bad argument #3 to 'appendMultiByteLE' ", 2)
-        byteStreamBuffer.util.assert(size > 0, "bad argument #3 to 'appendMultiByteLE' (size must be grater than 0)", 2)
-
-        if data < 0 then
-        data = 1 << (size * 8) + data
-        end
-
-        local d = data
-        for i = 1, size do
-        bsb[#bsb + 1] = d & 0xFF
-        d = d >> 8
-        end
-    end
-    -- append number in big endian
-    byteStreamBuffer.prototype.appendMultiByteBE = function(bsb, data, size)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendMultiByteBE' ", 2)
-        byteStreamBuffer.util.assertType(data, "integer", "bad argument #2 to 'appendMultiByteBE' ", 2)
-        byteStreamBuffer.util.assertType(size, "integer", "bad argument #3 to 'appendMultiByteBE' ", 2)
-        byteStreamBuffer.util.assert(size > 0, "bad argument #3 to 'appendMultiByteBE' (size must be grater than 0)", 2)
-
-        if data < 0 then
-        data = 1 << (size * 8) + data
-        end
-
-        local mask = 0xFF << ((size - 1) * 8)
-        local shift = size - 1
-        for i = 1, size do
-        bsb[#bsb + 1] = (data & mask) >> (shift * 8)
-        mask = mask >> 8
-        shift = shift - 1
-        end
-    end
-    -- append string sa byte sequence
-    byteStreamBuffer.prototype.appendString = function(bsb, data)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendString' ", 2)
-        byteStreamBuffer.util.assertType(data, "string", "bad argument #2 to 'appendString' ", 2)
-
-        for _, byte in ipairs({ data:byte(1, -1) }) do
-        bsb[#bsb + 1] = byte
-        end
-    end
-    -- append string as pascal string
-    byteStreamBuffer.prototype.appendPascalString = function(bsb, data)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendPascalString' ", 2)
-        byteStreamBuffer.util.assertType(data, "string", "bad argument #2 to 'appendPascalString' ", 2)
-
-        bsb[#bsb + 1] = #data
-        for _, byte in ipairs({ data:byte(1, -1) }) do
-        bsb[#bsb + 1] = byte
-        end
-    end
-    -- append slice of byteStreamBuffer
-    byteStreamBuffer.prototype.appendByteStreamBuffer = function(bsb, bsb2)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'appendByteStreamBuffer' ", 2)
-        byteStreamBuffer.util.assertType(bsb2, "byteStreamBuffer", "bad argument #2 to 'appendByteStreamBuffer' ", 2)
-
-        for i = 1, #bsb2 do
-        bsb[#bsb + 1] = bsb2[i]
-        end
-    end
-    -- clear buffer
-    byteStreamBuffer.prototype.clear = function(bsb)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'clear' ", 2)
-        bsb.array = {}
-    end
-    -- convert to string
-    byteStreamBuffer.prototype.tostring = function(bsb)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'tostring' ", 2)
-
-        local str = ""
-        for i = 1, #bsb do
-        str = str .. string.format("%c", bsb[i])
-        end
-
-        return str
-    end
-    -- returns slice of buffer
-    byteStreamBuffer.prototype.slice = function(bsb, startIndex, lastIndex)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'slice' ", 2)
-        byteStreamBuffer.util.assertType(startIndex, "integer", "bad argument #2 to 'slice' ", 2)
-        byteStreamBuffer.util.assertType(lastIndex, "integer", "bad argument #3 to 'slice' ", 2)
-
-        if startIndex < 1 then
-        startIndex = #bsb + startIndex
-        end
-        if lastIndex < 1 then
-        lastIndex = #bsb + lastIndex
-        end
-
-        local result = byteStreamBuffer()
-        for i = startIndex, lastIndex do
-        result[#result + 1] = bsb[i]
-        end
-
-        return result
-    end
-    -- compress buffer with pack bits and return new buffer
-    byteStreamBuffer.prototype.packBits = function(bsb)
-        byteStreamBuffer.util.assertType(bsb, "byteStreamBuffer", "bad argument #1 to 'packBits' ", 2)
-        if #bsb == 0 then
-        return byteStreamBuffer()
-        end
-
-        local result = byteStreamBuffer()
-        local buff = byteStreamBuffer()
-        local flag = -1
-        local size = 0xFF
-
-        local i = 1
-        while i <= #bsb do
-        if flag == 0 then
-            -- continuous
-            if buff[#buff] == bsb[i] then
-            buff[#buff + 1] = bsb[i]
-            else
-            result[#result + 1] = size - (#buff - 2)
-            result[#result + 1] = buff[1]
-            buff:clear()
-            buff[1] = bsb[i]
-            flag = -1
-            end
-        elseif flag == 1 then
-            -- discontinuous
-            if buff[#buff] ~= bsb[i] then
-            buff[#buff+1] = bsb[i]
-            else
-            result[#result+1] = #buff - 2
-            result:appendByteStreamBuffer(buff, 1, -1)
-            buff:clear()
-            buff[1] = bsb[i]
-            buff[2] = bsb[i]
-            flag = 0
-            end
-        else
-            -- undetermined
-            if #buff ~= 0 then
-            if buff[#buff] == bsb[i] then
-                flag = 0
-            else
-                flag = 1
-            end
-            end
-            buff[#buff+1] = bsb[i]
-        end
-
-        if #buff > size/2 then
-            if flag == 0 then
-            result[#result+1] = size - (#buff - 2)
-            result[#result+1] = buff[1]
-            else
-            result[#result+1] = #buff - 1
-            result:appendByteStreamBuffer(buff)
-            end
-            buff = {}
-            flag = -1
-        end
-
-        i = i + 1
-        end
-
-        if #buff ~= 0 then
-        if flag == 0 then
-            result[#result+1] = size - (#buff - 2)
-            result[#result+1] = buff[1]
-        else
-            result[#result+1] = #buff - 1
-            result.appendByteStreamBuffer(buff)
-        end
-        end
-
-        return result
-    end
-
-    byteStreamBuffer.meta.__index = function(bsb, index)
-        if byteStreamBuffer.util.isInteger(index) then
-        return bsb.array[index]
-        else
-        return byteStreamBuffer.prototype[index]
-        end
-    end
-    byteStreamBuffer.meta.__newindex = function(bsb, index, value)
-        if not byteStreamBuffer.util.isByte(value) then
-        error("Value must be byte number, got " .. value, 2)
-        end
-        if byteStreamBuffer.util.isInteger(index) then
-        bsb.array[index] = value
-        end
-    end
-    byteStreamBuffer.meta.__len = function(bsb)
-        return #bsb.array
-    end
-    byteStreamBuffer.meta.__tostring = function(bsb)
-        local str = "byteStreamBuffer[" .. #bsb.array .. "] { "
-
-        for i = 1, #bsb.array do
-        if i ~= 1 then
-            str = str .. ", "
-        end
-        str = str .. bsb.array[i]
-        end
-
-        str = str .. " }"
-        return str
-    end
-    byteStreamBuffer.meta.__concat = function(bsb1, bsb2)
-        local bsb = byteStreamBuffer()
-        for i = 1, #bsb1 do
-        bsb.array[#bsb.array + 1] = bsb1[i]
-        end
-        for i = 1, #bsb2 do
-        bsb.array[#bsb.array + 1] = bsb2[i]
-        end
-        return bsb
-    end
-
-    setmetatable(byteStreamBuffer, {
-        __call = function()
-        -- create new byteStreamBuffer
-        local bsb = {
-            array = {}
-        }
-        setmetatable(bsb, byteStreamBuffer.meta)
-
-        return bsb
-        end
-    })
-end
-initByteStreamBuffer
----------- byteStreamBuffer ----------
+ByteStreamBuffer.init()
+---------- ByteStreamBuffer ----------
 
 -- shows alert with failure message
-function failAlert(text)
+function FailAlert(text)
   app.alert{
     title = "Export Failed",
     text = text,
@@ -314,12 +314,12 @@ end
 ------------------------------
 
 if app.apiVersion < 1 then
-    failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
+    FailAlert("This script requires Aseprite v1.2.10-beta3 or above.")
     return
 end
 
 if not app.activeSprite then
-    failAlert("No sprite selected.")
+    FailAlert("No sprite selected.")
     return
 end
 local sprite = Sprite(app.activeSprite)
@@ -343,9 +343,9 @@ local paramTypes = {
 }
 
 local dialog = Dialog()
-function updateDialogElementVisibility()
+local function updateDialogElementVisibility()
     for id, param in pairs(paramTypes) do
-        visible = false
+        local visible = false
         for _, p in ipairs(param) do
             if p == dialog.data.filetype then
                 visible = true
@@ -365,7 +365,7 @@ dialog:combobox{
     options=fileTypes,
     onchange=function()
         -- update extension of filename
-        filename = app.fs.filePathAndTitle(dialog.data.filename)
+        local filename = app.fs.filePathAndTitle(dialog.data.filename)
         filename = filename .. "." .. dialog.data.filetype
 
         dialog:modify{
@@ -382,10 +382,7 @@ dialog:combobox{
     title="Export as...",
     save=true,
     filename=app.fs.filePathAndTitle(sprite.filename) .. ".ico",
-    filetypes="ico",
-    onchange=function()
-        fileNameEdited = true
-    end
+    filetypes="ico"
 }:separator{
     id="icoSeparator",
     text=".ico file option"
@@ -405,32 +402,18 @@ dialog:combobox{
     label="HotSpot",
     text="0",
     onchange=function()
-        num = dialog.data.hotSpotX
-        if num < 0 then
-            num = 0
-        elseif num >= sprite.width then
-            num = sprite.width - 1
-        end
-
         dialog:modify{
             id="hotSpotX",
-            text=num
+            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotX))
         }
     end
 }:number{
     id="hotSpotY",
     text="0",
     onchange=function()
-        num = dialog.data.hotSpotY
-        if num < 0 then
-            num = 0
-        elseif num >= sprite.width then
-            num = sprite.width - 1
-        end
-
         dialog:modify{
             id="hotSpotY",
-            text=num
+            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotY))
         }
     end
 }:number{
@@ -438,14 +421,9 @@ dialog:combobox{
     label="Framerate (1/60s)",
     text="60",
     onchange=function()
-        num = dialog.data.framerate
-        if num < 0 then
-            num = 0
-        end
-
         dialog:modify{
             id="framerate",
-            text=num
+            text=math.min(0, dialog.data.framerate)
         }
     end
 }:check{
@@ -478,6 +456,12 @@ local hotSpotX = dialog.data.hotSoptX
 local hotSpotY = dialog.data.hotSpotY
 local framerate = dialog.data.framerate
 local showCompleated = dialog.data.showCompleated
+local targetCels = {}
+if frame == "all" then
+    targetCels = sprite.cels
+else
+    targetCels = { tonumber(frame) }
+end
 
 local dpi = 96
 local fileHeaderSize = 6
@@ -485,7 +469,7 @@ local iconInfoHeaderSize = 16
 local bitmapInfoHeaderSize = 40
 
 local transparent = { r=0, g=0, b=0, a=0 }
-function getColorSpriteSpace(x, y, cel)
+function GetColorSpriteSpace(x, y, cel)
     if x < cel.bounds.x then
         return transparent
     end
@@ -527,11 +511,11 @@ function getColorSpriteSpace(x, y, cel)
     return transparent
 end
 
-function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
+function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     local images = {}
     for i, cel in ipairs(targetCels) do
-        local colorData = byteStreamBuffer()
-        local maskData = byteStreamBuffer()
+        local colorData = ByteStreamBuffer()
+        local maskData = ByteStreamBuffer()
         local mask = 0
         local maskCount = 0
 
@@ -540,7 +524,7 @@ function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
             maskCount = 0
 
             for x = 0, sprite.width - 1 do
-                local color = getColorSpriteSpace(x, y, cel)
+                local color = GetColorSpriteSpace(x, y, cel)
                 colorData:appendByte(color.b)
                 colorData:appendByte(color.g)
                 colorData:appendByte(color.r)
@@ -577,13 +561,13 @@ function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
         }
     end
 
-    local data = byteStreamBuffer()
+    local data = ByteStreamBuffer()
 
     -- file header
     ---- reserved
     data:appendMultiByteLE(0, 2)
     ---- resource type (1: icon / 2: cursor)
-    data:appendMultiByteLE(1, 2)
+    data:appendMultiByteLE(resourceType, 2)
     ---- number of images
     data:appendMultiByteLE(#targetCels, 2)
 
@@ -599,8 +583,8 @@ function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
         ---- resevered
         data:appendByte(0)
         ---- hotspot x, y for cursor, reserverd for ico
-        data:appendMultiByteLE(0, 2)
-        data:appendMultiByteLE(0, 2)
+        data:appendMultiByteLE(hotSpotX, 2)
+        data:appendMultiByteLE(hotSpotY, 2)
         ---- icon data size
         dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask
         data:appendMultiByteLE(dataSize, 4)
@@ -612,7 +596,7 @@ function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     -- each icon (or cursor)
     for index, frame in ipairs(targetCels) do
         -- set offset in icon header
-        offset = byteStreamBuffer()
+        offset = ByteStreamBuffer()
         offset:appendMultiByteLE(#data, 4)
         data[offsetAddresses[index] + 1] = offset[1]
         data[offsetAddresses[index] + 2] = offset[2]
@@ -654,16 +638,29 @@ function createIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     return data
 end
 
+local fileData = ByteStreamBuffer()
+
+if filetype == "ico" then
+    fileData = CreateIcoOrCur(targetCels, 1, 0, 0)
+elseif filetype == "cur" then
+    fileData = CreateIcoOrCur(targetCels, 2, hotSpotX, hotSpotY)
+elseif filetype == "ani" then
+    -- todo
+else
+    FailAlert("The format \"" .. filetype "\" is not implemented.")
+    return
+end
+
 sprite:close()
 
 local file = io.open(filename, "wb")
 if not file then
-  failAlert("Failed to open the file to export.")
+  FailAlert("Failed to open the file to export.")
   return
 end
 
-for i = 1, #data do
-    file:write(string.format("%c", data[i]))
+for i = 1, #fileData do
+    file:write(string.format("%c", fileData[i]))
 end
 
 file:close()
