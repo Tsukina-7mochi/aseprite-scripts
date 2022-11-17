@@ -309,8 +309,6 @@ function FailAlert(text)
   }
 end
 
-DebugMode = true
-
 ------------------------------
 -- ENTRY
 ------------------------------
@@ -485,15 +483,6 @@ repeat
 until not retype
 
 if not dialog.data.ok then return end
-
-if DebugMode then
-    print("File type: " .. filetype)
-    print("File name: " .. filename)
-    print("Frame: " .. frame)
-    print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
-    print("Frame rate: " .. framerate)
-    print("Show dialog on compleate: " .. (showCompleated and "true" or "false"))
-end
 
 local targetCels = {}
 if filetype == "ani" then
