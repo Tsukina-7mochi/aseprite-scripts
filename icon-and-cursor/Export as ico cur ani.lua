@@ -325,11 +325,15 @@ end
 
 local sprite = app.activeSprite
 
--- TODO: support tags
 local frameList = {"All"}
 for i = 1, #sprite.frames do
   table.insert(frameList, "" .. i)
 end
+local tagList = {"All"}
+for _, tag in ipairs(sprite.tags) do
+    table.insert(tagList, tag.name .. " ")
+end
+
 local fileTypes = { "ico", "cur", "ani" }
 local paramTypes = {
     icoSeparator={ "ico" },
@@ -338,7 +342,8 @@ local paramTypes = {
     hotSpotX={ "cur", "ani" },
     hotSpotY={ "cur", "ani" },
     frame={ "ico", "cur" },
-    framerate={ "ani" }
+    framerate={ "ani" },
+    tag={"ani"}
 }
 
 local dialog = Dialog()
@@ -395,8 +400,13 @@ dialog:combobox{
 }:combobox{
     id="frame",
     label="Frame",
-    option=frameList[2],
+    option="1",
     options=frameList
+}:combobox{
+    id="tag",
+    label="Tag of All",
+    option="1",
+    options=tagList
 }:number{
     id="hotSpotX",
     label="HotSpot",
@@ -433,6 +443,7 @@ updateDialogElementVisibility()
 local filetype = dialog.data.filetype   --[[@as string]]
 local filename = dialog.data.filename   --[[@as string]]
 local frame = dialog.data.frame         --[[@as string]]
+local tag = dialog.data.tag            --[[@as string]]
 local hotSpotX = dialog.data.hotSpotX   --[[@as number]]
 local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
 local framerate = dialog.data.framerate --[[@as number]]
@@ -445,6 +456,7 @@ repeat
     filetype = dialog.data.filetype   --[[@as string]]
     filename = dialog.data.filename   --[[@as string]]
     frame = dialog.data.frame         --[[@as string]]
+    tag = dialog.data.tag            --[[@as string]]
     hotSpotX = dialog.data.hotSpotX   --[[@as number]]
     hotSpotY = dialog.data.hotSpotY   --[[@as number]]
     framerate = dialog.data.framerate --[[@as number]]
@@ -486,11 +498,24 @@ if not dialog.data.ok then return end
 
 local targetCels = {}
 if filetype == "ani" then
-    targetCels = sprite.cels
-elseif frame == "all" then
-    targetCels = sprite.cels
+    if tag == "All" then
+        targetCels = sprite.cels
+    else
+        local tagname = tag:sub(1, #tag - 1)
+        for _, tag in ipairs(sprite.tags) do
+            if tag.name == tagname then
+                for i = tag.fromFrame.frameNumber, tag.toFrame.frameNumber do
+                    targetCels[#targetCels + 1] = sprite.cels[i]
+                end
+            end
+        end
+    end
 else
-    targetCels = { sprite.cels[tonumber(frame)] }
+    if frame == "all" then
+        targetCels = sprite.cels
+    else
+        targetCels = { sprite.cels[tonumber(frame)] }
+    end
 end
 
 sprite = Sprite(app.activeSprite)
