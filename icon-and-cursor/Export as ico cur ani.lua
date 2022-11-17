@@ -402,22 +402,10 @@ dialog:combobox{
 }:number{
     id="hotSpotX",
     label="HotSpot",
-    text="0",
-    onchange=function()
-        dialog:modify{
-            id="hotSpotX",
-            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotX --[[@as number]]))
-        }
-    end
+    text="0"
 }:number{
     id="hotSpotY",
-    text="0",
-    onchange=function()
-        dialog:modify{
-            id="hotSpotY",
-            text=math.max(0, math.min(sprite.width - 1, dialog.data.hotSpotY --[[@as number]]))
-        }
-    end
+    text="0"
 }:number{
     id="framerate",
     label="Framerate (1/60s)",
@@ -444,19 +432,6 @@ dialog:combobox{
 
 updateDialogElementVisibility()
 
-dialog:show()
-
--- if true then return end
-if not dialog.data.ok then return end
-
-sprite = Sprite(app.activeSprite)
-for _, layer in ipairs(sprite.layers) do
-    if not layer.isVisible then
-        sprite:deleteLayer(layer)
-    end
-end
-sprite:flatten()
-
 local filetype = dialog.data.filetype   --[[@as string]]
 local filename = dialog.data.filename   --[[@as string]]
 local frame = dialog.data.frame         --[[@as string]]
@@ -464,14 +439,52 @@ local hotSpotX = dialog.data.hotSpotX   --[[@as number]]
 local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
 local framerate = dialog.data.framerate --[[@as number]]
 local showCompleated = dialog.data.showCompleated --[[@as boolean]]
-local targetCels = {}
-if filetype == "ani" then
-    targetCels = sprite.cels
-elseif frame == "all" then
-    targetCels = sprite.cels
-else
-    targetCels = { sprite.cels[tonumber(frame)] }
-end
+
+repeat
+    local retype = false
+    dialog:show()
+
+    filetype = dialog.data.filetype   --[[@as string]]
+    filename = dialog.data.filename   --[[@as string]]
+    frame = dialog.data.frame         --[[@as string]]
+    hotSpotX = dialog.data.hotSpotX   --[[@as number]]
+    hotSpotY = dialog.data.hotSpotY   --[[@as number]]
+    framerate = dialog.data.framerate --[[@as number]]
+    showCompleated = dialog.data.showCompleated --[[@as boolean]]
+
+    if dialog.data.cancel then break end
+
+    if hotSpotX < 0 then
+        retype  = true
+        app.alert{
+            title="Value error",
+            text="Hot spot x is too small."
+        }
+    end
+    if hotSpotX >= sprite.width then
+        retype  = true
+        app.alert{
+            title="Value error",
+            text="Hot spot x is too big."
+        }
+    end
+    if hotSpotY < 0 then
+        retype  = true
+        app.alert{
+            title="Value error",
+            text="Hot spot y is too small."
+        }
+    end
+    if hotSpotY >= sprite.height then
+        retype  = true
+        app.alert{
+            title="Value error",
+            text="Hot spot y is too big."
+        }
+    end
+until not retype
+
+if not dialog.data.ok then return end
 
 if DebugMode then
     print("File type: " .. filetype)
@@ -481,6 +494,24 @@ if DebugMode then
     print("Frame rate: " .. framerate)
     print("Show dialog on compleate: " .. (showCompleated and "true" or "false"))
 end
+
+local targetCels = {}
+if filetype == "ani" then
+    targetCels = sprite.cels
+elseif frame == "all" then
+    targetCels = sprite.cels
+else
+    targetCels = { sprite.cels[tonumber(frame)] }
+end
+
+sprite = Sprite(app.activeSprite)
+for _, layer in ipairs(sprite.layers) do
+    if not layer.isVisible then
+        sprite:deleteLayer(layer)
+    end
+end
+sprite:flatten()
+
 
 local dpi = 96
 local fileHeaderSize = 6
