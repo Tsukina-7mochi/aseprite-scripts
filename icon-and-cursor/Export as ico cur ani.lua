@@ -526,11 +526,6 @@ else
     end
 end
 
-for _, cel in ipairs(targetCels) do
-    print(cel.layer.name .. ": " .. cel.frameNumber)
-end
-
-
 local bitmapInfoHeaderSize = 40
 
 local transparent = { r=0, g=0, b=0, a=0 }
