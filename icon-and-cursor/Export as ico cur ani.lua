@@ -309,6 +309,8 @@ function FailAlert(text)
   }
 end
 
+DebugMode = true
+
 ------------------------------
 -- ENTRY
 ------------------------------
@@ -322,10 +324,8 @@ if not app.activeSprite then
     FailAlert("No sprite selected.")
     return
 end
-local sprite = Sprite(app.activeSprite)
-sprite:flatten()
 
-local targetCels = sprite.cels
+local sprite = app.activeSprite
 
 local frameList = {"All"}
 for i = 1, #sprite.frames do
@@ -445,15 +445,21 @@ updateDialogElementVisibility()
 
 dialog:show()
 
-sprite:close()
+-- if true then return end
+if not dialog.data.ok then return end
 
-if true then return end
--- if dialog.data.ok then return end
+sprite = Sprite(app.activeSprite)
+for _, layer in ipairs(sprite.layers) do
+    if not layer.isVisible then
+        sprite:deleteLayer(layer)
+    end
+end
+sprite:flatten()
 
 local filetype = dialog.data.filetype   --[[@as string]]
 local filename = dialog.data.filename   --[[@as string]]
 local frame = dialog.data.frame         --[[@as string]]
-local hotSpotX = dialog.data.hotSoptX   --[[@as number]]
+local hotSpotX = dialog.data.hotSpotX   --[[@as number]]
 local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
 local framerate = dialog.data.framerate --[[@as number]]
 local showCompleated = dialog.data.showCompleated --[[@as boolean]]
@@ -462,6 +468,15 @@ if frame == "all" then
     targetCels = sprite.cels
 else
     targetCels = { sprite.cels[tonumber(frame)] }
+end
+
+if DebugMode then
+    print("File type: " .. filetype)
+    print("File name: " .. filename)
+    print("Frame: " .. frame)
+    print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
+    print("Frame rate: " .. framerate)
+    print("Show dialog on compleate: " .. (showCompleated and "true" or "false"))
 end
 
 local dpi = 96
@@ -484,7 +499,7 @@ function GetColorSpriteSpace(x, y, cel)
         return transparent
     end
 
-    pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
+    local pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
     if cel.image.colorMode == ColorMode.RGB then
         return {
             r=app.pixelColor.rgbaR(pixel),
@@ -500,6 +515,11 @@ function GetColorSpriteSpace(x, y, cel)
             a=app.pixelColor.grayaA(pixel)
         }
     elseif cel.image.colorMode == ColorMode.INDEXED then
+        print(pixel)
+        if pixel == cel.image.spec.transparentColor then
+            return transparent
+        end
+
         local c = sprite.palettes[1]:getColor(pixel)
         return {
             r=c.red,
@@ -654,12 +674,12 @@ elseif filetype == "cur" then
     fileData = CreateIcoOrCur(targetCels, 2, hotSpotX, hotSpotY)
 elseif filetype == "ani" then
     -- todo
+    FailAlert("The format \"" .. filetype "\" is not implemented.")
+    return
 else
     FailAlert("The format \"" .. filetype "\" is not implemented.")
     return
 end
-
-sprite:close()
 
 local file = io.open(filename, "wb")
 if not file then
@@ -672,6 +692,7 @@ for i = 1, #fileData do
 end
 
 file:close()
+sprite:close()
 
 -- app.alert{
 --     title = "Export Finished",
