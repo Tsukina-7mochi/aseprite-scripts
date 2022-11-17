@@ -496,6 +496,14 @@ until not retype
 
 if not dialog.data.ok then return end
 
+sprite = Sprite(app.activeSprite)
+for _, layer in ipairs(sprite.layers) do
+    if not layer.isVisible then
+        sprite:deleteLayer(layer)
+    end
+end
+sprite:flatten()
+
 local targetCels = {}
 if filetype == "ani" then
     if tag == "All" then
@@ -518,13 +526,9 @@ else
     end
 end
 
-sprite = Sprite(app.activeSprite)
-for _, layer in ipairs(sprite.layers) do
-    if not layer.isVisible then
-        sprite:deleteLayer(layer)
-    end
+for _, cel in ipairs(targetCels) do
+    print(cel.layer.name .. ": " .. cel.frameNumber)
 end
-sprite:flatten()
 
 
 local bitmapInfoHeaderSize = 40
