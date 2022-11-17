@@ -515,7 +515,6 @@ function GetColorSpriteSpace(x, y, cel)
             a=app.pixelColor.grayaA(pixel)
         }
     elseif cel.image.colorMode == ColorMode.INDEXED then
-        print(pixel)
         if pixel == cel.image.spec.transparentColor then
             return transparent
         end
