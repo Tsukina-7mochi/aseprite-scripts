@@ -327,6 +327,7 @@ end
 
 local sprite = app.activeSprite
 
+-- TODO: support tags
 local frameList = {"All"}
 for i = 1, #sprite.frames do
   table.insert(frameList, "" .. i)
@@ -420,7 +421,7 @@ dialog:combobox{
 }:number{
     id="framerate",
     label="Framerate (1/60s)",
-    text="60",
+    text="" .. math.floor(sprite.frames[1].duration * 60),
     onchange=function()
         dialog:modify{
             id="framerate",
@@ -464,7 +465,9 @@ local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
 local framerate = dialog.data.framerate --[[@as number]]
 local showCompleated = dialog.data.showCompleated --[[@as boolean]]
 local targetCels = {}
-if frame == "all" then
+if filetype == "ani" then
+    targetCels = sprite.cels
+elseif frame == "all" then
     targetCels = sprite.cels
 else
     targetCels = { sprite.cels[tonumber(frame)] }
@@ -672,9 +675,73 @@ if filetype == "ico" then
 elseif filetype == "cur" then
     fileData = CreateIcoOrCur(targetCels, 2, hotSpotX, hotSpotY)
 elseif filetype == "ani" then
-    -- todo
-    FailAlert("The format \"" .. filetype "\" is not implemented.")
-    return
+    fileData = ByteStreamBuffer()
+
+    local riffSizeIndex = 0
+    local listSizeIndex = 0
+
+    fileData:appendString("RIFF")
+    -- size of file, deside later
+    riffSizeIndex = #fileData
+    fileData:appendMultiByteLE(0, 4)
+    -- signature
+    fileData:appendString("ACON")
+
+    -- animation header
+    fileData:appendString("anih")
+    -- ani header size
+    fileData:appendMultiByteLE(36, 4)
+    -- data size?
+    fileData:appendMultiByteLE(36, 4)
+    -- number of frames
+    fileData:appendMultiByteLE(#targetCels, 4)
+    -- number of steps
+    fileData:appendMultiByteLE(#targetCels, 4)
+    -- width and height
+    -- store zeros because images are stored as icon format
+    fileData:appendMultiByteLE(0, 4)
+    fileData:appendMultiByteLE(0, 4)
+    -- bits per pixel
+    fileData:appendMultiByteLE(32, 4)
+    -- planes
+    fileData:appendMultiByteLE(1, 4)
+    -- frame rate
+    fileData:appendMultiByteLE(framerate, 4)
+    -- flags: 0b01 (no sequence data, ico file in LIST)
+    fileData:appendMultiByteLE(1, 4)
+
+    -- LIST header
+    fileData:appendString("LIST")
+    -- LIST size
+    listSizeIndex = #fileData
+    fileData:appendMultiByteLE(0, 4)
+    -- signature
+    fileData:appendString("fram")
+
+    -- each image as cur
+    for _, cel in ipairs(targetCels) do
+        fileData:appendString("icon")
+
+        local curData = CreateIcoOrCur({cel}, 2, hotSpotX, hotSpotY)
+        fileData:appendMultiByteLE(#curData, 4)
+        fileData:appendByteStreamBuffer(curData)
+    end
+
+    local listSize = #fileData - listSizeIndex - 4
+    local sizeBsb = ByteStreamBuffer()
+    sizeBsb:appendMultiByteLE(listSize, 4)
+    fileData[listSizeIndex + 1] = sizeBsb[1]
+    fileData[listSizeIndex + 2] = sizeBsb[2]
+    fileData[listSizeIndex + 3] = sizeBsb[3]
+    fileData[listSizeIndex + 4] = sizeBsb[4]
+    sizeBsb:clear()
+
+    local riffSize = #fileData - riffSizeIndex - 4
+    sizeBsb:appendMultiByteLE(riffSize, 4)
+    fileData[riffSizeIndex + 1] = sizeBsb[1]
+    fileData[riffSizeIndex + 2] = sizeBsb[2]
+    fileData[riffSizeIndex + 3] = sizeBsb[3]
+    fileData[riffSizeIndex + 4] = sizeBsb[4]
 else
     FailAlert("The format \"" .. filetype "\" is not implemented.")
     return
