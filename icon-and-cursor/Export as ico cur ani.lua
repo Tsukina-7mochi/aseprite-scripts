@@ -806,8 +806,8 @@ end
 file:close()
 sprite:close()
 
--- app.alert{
---     title = "Export Finished",
---     text = "File is exported successfully.",
---     buttons = "OK"
--- }
+app.alert{
+    title = "Export Finished",
+    text = "File is successfully exported.",
+    buttons = "OK"
+}
