@@ -527,9 +527,6 @@ end
 sprite:flatten()
 
 
-local dpi = 96
-local fileHeaderSize = 6
-local iconInfoHeaderSize = 16
 local bitmapInfoHeaderSize = 40
 
 local transparent = { r=0, g=0, b=0, a=0 }
