@@ -234,7 +234,7 @@ ByteStreamBuffer = {
                 result[#result+1] = buff[1]
             else
                 result[#result+1] = #buff - 1
-                result.appendByteStreamBuffer(buff)
+                result:appendByteStreamBuffer(buff)
             end
             end
 
@@ -283,7 +283,7 @@ ByteStreamBuffer = {
             return bsb
         end
 
-        setmetatable(ByteStreamBuffer, {
+        setmetatable(ByteStreamBuffer --[[@as table]], {
             __call = function()
             -- create new ByteStreamBuffer
             local bsb = {
@@ -645,7 +645,8 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     return data
 end
 
-local fileData = ByteStreamBuffer()
+---@type ByteStreamBuffer
+local fileData
 
 if filetype == "ico" then
     fileData = CreateIcoOrCur(targetCels, 1, 0, 0)
