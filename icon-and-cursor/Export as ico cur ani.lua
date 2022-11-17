@@ -450,18 +450,18 @@ sprite:close()
 if true then return end
 -- if dialog.data.ok then return end
 
-local filetype = dialog.data.filetype
-local filename = dialog.data.filename
-local frame = dialog.data.frame
-local hotSpotX = dialog.data.hotSoptX
-local hotSpotY = dialog.data.hotSpotY
-local framerate = dialog.data.framerate
-local showCompleated = dialog.data.showCompleated
+local filetype = dialog.data.filetype   --[[@as string]]
+local filename = dialog.data.filename   --[[@as string]]
+local frame = dialog.data.frame         --[[@as string]]
+local hotSpotX = dialog.data.hotSoptX   --[[@as number]]
+local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
+local framerate = dialog.data.framerate --[[@as number]]
+local showCompleated = dialog.data.showCompleated --[[@as boolean]]
 local targetCels = {}
 if frame == "all" then
     targetCels = sprite.cels
 else
-    targetCels = { tonumber(frame) }
+    targetCels = { sprite.cels[tonumber(frame)] }
 end
 
 local dpi = 96
@@ -494,10 +494,10 @@ function GetColorSpriteSpace(x, y, cel)
         }
     elseif cel.image.colorMode == ColorMode.GRAY then
         return {
-            r=app.pixelColor.grayaV(color),
-            g=app.pixelColor.grayaV(color),
-            b=app.pixelColor.grayaV(color),
-            a=app.pixelColor.grayaA(color)
+            r=app.pixelColor.grayaV(pixel),
+            g=app.pixelColor.grayaV(pixel),
+            b=app.pixelColor.grayaV(pixel),
+            a=app.pixelColor.grayaA(pixel)
         }
     elseif cel.image.colorMode == ColorMode.INDEXED then
         local c = sprite.palettes[1]:getColor(pixel)
@@ -512,6 +512,12 @@ function GetColorSpriteSpace(x, y, cel)
     return transparent
 end
 
+---Create ico or cur file data of given cels
+---@param targetCels Cel[]
+---@param resourceType integer
+---@param hotSpotX integer
+---@param hotSpotY integer
+---@return ByteStreamBuffer
 function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     local images = {}
     for i, cel in ipairs(targetCels) do
