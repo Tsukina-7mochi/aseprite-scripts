@@ -20,7 +20,7 @@
 
 ## Download
 
-[Latest](https://combinatronics.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
+[Latest](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
 ## Update Log
 

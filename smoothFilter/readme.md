@@ -28,4 +28,4 @@
 
 ## Download
 
-[Latest](https://combinatronics.com/Tsukina-7mochi/aseprite-scripts/master/smoothFilter/Smooth%20Filter.lua)
+[Latest](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smoothFilter/Smooth%20Filter.lua)
