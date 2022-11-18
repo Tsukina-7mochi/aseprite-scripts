@@ -1,0 +1,3 @@
+[submodule "library/aseprite"]
+	path = library/aseprite
+	url = https://github.com/Tsukina-7mochi/aseprite-type-definition.git

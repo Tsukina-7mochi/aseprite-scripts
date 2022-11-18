@@ -18,11 +18,6 @@
  3. Specify the frame number to export.
  4. Click `Export` button.
 
-## In Use
-- You can edit the source code as you like, and distribute it.
-- You cannot redistribute files with no change without my permission.
-- This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
-
 ## Download
 
 [Latest](https://combinatronics.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
@@ -60,3 +55,6 @@ PSD Tool (https://oov.github.io/psdtool/)
 
 [燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script. Great thanks to him.
 
+## Others
+
+- This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)

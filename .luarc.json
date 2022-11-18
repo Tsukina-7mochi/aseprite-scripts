@@ -1,0 +1,10 @@
+{
+    "Lua.diagnostics.globals": [
+        "ngx",
+        "util"
+    ],
+    "Lua.runtime.version": "5.3",
+    "workspace.library": [
+        "library"
+    ]
+}
