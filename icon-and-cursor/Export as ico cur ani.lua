@@ -23,204 +23,333 @@ end
 
 local sprite = app.activeSprite
 
-local frameList = {"All"}
-for i = 1, #sprite.frames do
-  table.insert(frameList, "" .. i)
-end
-local tagList = {"All"}
-for _, tag in ipairs(sprite.tags) do
-    table.insert(tagList, tag.name .. " ")
-end
-
-local fileTypes = { "ico", "cur", "ani" }
-local paramTypes = {
-    icoSeparator={ "ico" },
-    curSeparator={ "cur" },
-    aniSeparator={ "ani" },
-    hotSpotX={ "cur", "ani" },
-    hotSpotY={ "cur", "ani" },
-    frame={ "ico", "cur" },
-    framerate={ "ani" },
-    tag={"ani"}
-}
-
-local dialog = Dialog()
-local function updateDialogElementVisibility()
-    ---@type string
-    for id, param in pairs(paramTypes) do
-        local visible = false
-        for _, p in ipairs(param) do
-            if p == dialog.data.filetype then
-                visible = true
-            end
-        end
-        dialog:modify{
-            id=id,
-            visible=visible
-        }
-    end
-end
-
-dialog:combobox{
-    id="filetype",
-    label="Type",
-    option=fileTypes[1],
-    options=fileTypes,
-    onchange=function()
-        -- update extension of filename
-        local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
-        filename = filename .. "." .. dialog.data.filetype
-
-        dialog:modify{
-            id="filename",
-            filename=filename
-        }
-        -- update visibility of each dialog element
-
-        updateDialogElementVisibility()
-    end
-}:file{
-    id="filename",
-    label="Filename",
-    title="Export as...",
-    save=true,
-    filename=app.fs.filePathAndTitle(sprite.filename) .. ".ico",
-    filetypes={"ico"}
-}:separator{
-    id="icoSeparator",
-    text=".ico file option"
-}:separator{
-    id="curSeparator",
-    text=".cur file option"
-}:separator{
-    id="aniSeparator",
-    text=".ani file option"
-}:combobox{
-    id="frame",
-    label="Frame",
-    option="1",
-    options=frameList
-}:combobox{
-    id="tag",
-    label="Tag of All",
-    option="1",
-    options=tagList
-}:number{
-    id="hotSpotX",
-    label="HotSpot",
-    text="0"
-}:number{
-    id="hotSpotY",
-    text="0"
-}:number{
-    id="framerate",
-    label="Framerate (1/60s)",
-    text="" .. math.floor(sprite.frames[1].duration * 60),
-    onchange=function()
-        dialog:modify{
-            id="framerate",
-            text=math.min(0, dialog.data.framerate --[[@as number]])
-        }
-    end
-}:check{
-    id="showCompleated",
-    label="",
-    text="Show dialog when succeeded",
-    selected=true
-}:button{
-    id="ok",
-    text="&Export",
-    focus=true
-}:button{
-    id="cancel",
-    text="&Cancel"
-}
-
-updateDialogElementVisibility()
-
-local filetype = dialog.data.filetype   --[[@as string]]
-local filename = dialog.data.filename   --[[@as string]]
-local frame = dialog.data.frame         --[[@as string]]
-local tag = dialog.data.tag            --[[@as string]]
-local hotSpotX = dialog.data.hotSpotX   --[[@as number]]
-local hotSpotY = dialog.data.hotSpotY   --[[@as number]]
-local framerate = dialog.data.framerate --[[@as number]]
-local showCompleated = dialog.data.showCompleated --[[@as boolean]]
-
-repeat
-    local retype = false
-    dialog:show()
-
-    filetype = dialog.data.filetype   --[[@as string]]
-    filename = dialog.data.filename   --[[@as string]]
-    frame = dialog.data.frame         --[[@as string]]
-    tag = dialog.data.tag            --[[@as string]]
-    hotSpotX = dialog.data.hotSpotX   --[[@as number]]
-    hotSpotY = dialog.data.hotSpotY   --[[@as number]]
-    framerate = dialog.data.framerate --[[@as number]]
-    showCompleated = dialog.data.showCompleated --[[@as boolean]]
-
-    if dialog.data.cancel then break end
-
-    if hotSpotX < 0 then
-        retype  = true
-        app.alert{
-            title="Value error",
-            text="Hot spot x is too small."
-        }
-    end
-    if hotSpotX >= sprite.width then
-        retype  = true
-        app.alert{
-            title="Value error",
-            text="Hot spot x is too big."
-        }
-    end
-    if hotSpotY < 0 then
-        retype  = true
-        app.alert{
-            title="Value error",
-            text="Hot spot y is too small."
-        }
-    end
-    if hotSpotY >= sprite.height then
-        retype  = true
-        app.alert{
-            title="Value error",
-            text="Hot spot y is too big."
-        }
-    end
-until not retype
-
-if not dialog.data.ok then return end
-
-sprite = Sprite(app.activeSprite)
+local layerList = {"Visible layers", "Active layer"}
 for _, layer in ipairs(sprite.layers) do
-    if not layer.isVisible then
-        sprite:deleteLayer(layer)
-    end
+    table.insert(layerList, "Layer: " .. layer.name)
 end
-sprite:flatten()
+local frameList = {"All"}
+for _, tag in ipairs(sprite.tags) do
+    table.insert(frameList, "Tag: " .. tag.name)
+end
+for i = 1, #sprite.frames do
+  table.insert(frameList, "Frame: " .. i)
+end
 
-local targetCels = {}
-if filetype == "ani" then
-    if tag == "All" then
-        targetCels = sprite.cels
-    else
-        local tagname = tag:sub(1, #tag - 1)
-        for _, tag in ipairs(sprite.tags) do
-            if tag.name == tagname then
-                for i = tag.fromFrame.frameNumber, tag.toFrame.frameNumber do
-                    targetCels[#targetCels + 1] = sprite.cels[i]
+---@type "ico" | "cur" | "ani"
+local filetype = "ico"
+---@type string
+local filename = app.fs.filePathAndTitle(sprite.filename) .. "." .. filetype
+---@type number
+local hotSpotX = 0
+---@type number
+local hotSpotY = 0
+---@type number
+local framerate = math.floor(sprite.frames[1].duration * 60)
+---@type boolean
+local showCompleated = true
+---@type integer[]
+local targetframeNums = {}
+---@type string[]
+local excludedLayerNames = {}
+---@type boolean
+local exitScript = false
+
+function SetParamFromDialog()
+    local fileTypes = { "ico", "cur", "ani" }
+    local paramTypes = {
+        icoSeparator={ "ico" },
+        curSeparator={ "cur" },
+        aniSeparator={ "ani" },
+        hotSpotX={ "cur", "ani" },
+        hotSpotY={ "cur", "ani" },
+        frame={ "ico", "cur", "ani" },
+        layer={ "ico", "cur", "ani" },
+        framerate={ "ani" }
+    }
+
+    local dialog = Dialog()
+    local function updateDialogElementVisibility()
+        ---@type string
+        for id, param in pairs(paramTypes) do
+            local visible = false
+            for _, p in ipairs(param) do
+                if p == dialog.data.filetype then
+                    visible = true
+                end
+            end
+            dialog:modify{
+                id=id,
+                visible=visible
+            }
+        end
+    end
+
+    dialog:combobox{
+        id="filetype",
+        label="Type",
+        option=fileTypes[1],
+        options=fileTypes,
+        onchange=function()
+            -- update extension of filename
+            local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
+            filename = filename .. "." .. dialog.data.filetype
+
+            dialog:modify{
+                id="filename",
+                filename=filename
+            }
+
+            -- update frame selection
+            if (dialog.data.filetype --[[@as string]]) == "ani" then
+                if (dialog.data.frame --[[@as string]]):sub(1, 7) == "Frame: " then
+                    dialog:modify{
+                        id="frame",
+                        option="All"
+                    }
+                end
+            end
+
+            updateDialogElementVisibility()
+        end
+    }:file{
+        id="filename",
+        label="Filename",
+        title="Export as...",
+        save=true,
+        filename=filename,
+        filetypes={"ico"}
+    }:separator{
+        id="icoSeparator",
+        text=".ico file option"
+    }:separator{
+        id="curSeparator",
+        text=".cur file option"
+    }:separator{
+        id="aniSeparator",
+        text=".ani file option"
+    }:combobox{
+        id="layer",
+        label="Layers",
+        option=layerList[1],
+        options=layerList
+    }:combobox{
+        id="frame",
+        label="Frames",
+        option="Frame: 1",
+        options=frameList
+    }:number{
+        id="hotSpotX",
+        label="HotSpot",
+        text="0"
+    }:number{
+        id="hotSpotY",
+        text="0"
+    }:number{
+        id="framerate",
+        label="Framerate (1/60s)",
+        text="" .. framerate,
+        onchange=function()
+            dialog:modify{
+                id="framerate",
+                text=math.min(0, dialog.data.framerate --[[@as number]])
+            }
+        end
+    }:check{
+        id="showCompleated",
+        label="",
+        text="Show dialog when succeeded",
+        selected=true
+    }:button{
+        id="ok",
+        text="&Export",
+        focus=true
+    }:button{
+        id="cancel",
+        text="&Cancel"
+    }
+
+    updateDialogElementVisibility()
+
+    repeat
+        local retype = false
+        dialog:show()
+
+        local filetype_ = dialog.data.filetype --[[@as string]]
+        local filename_ = dialog.data.filename --[[@as string]]
+        local layer_ = dialog.data.layer --[[@as string]]
+        local frame_ = dialog.data.frame --[[@as string]]
+        local hotSpotX_ = dialog.data.hotSpotX --[[@as number]]
+        local hotSpotY_ = dialog.data.hotSpotY --[[@as number]]
+        local framerate_ = dialog.data.framerate --[[@as number]]
+        local showCompleated_ = dialog.data.showCompleated --[[@as boolean]]
+
+        assert(type(filetype_) == "string", "filetype_ must be string, got" .. type(filetype_))
+        assert(type(filename_) == "string", "filename_ must be string, got" .. type(filename_))
+        assert(type(layer_) == "string", "layer_ must be string, got" .. type(layer_))
+        assert(type(frame_) == "string", "frame_ must be string, got" .. type(frame_))
+        assert(type(hotSpotX_) == "number", "hotSpotX_ must be number, got" .. type(hotSpotX_))
+        assert(type(hotSpotY_) == "number", "hotSpotX_ must be number, got" .. type(hotSpotY_))
+        assert(type(framerate_) == "number", "framerate_ must be number, got" .. type(framerate_))
+        assert(type(showCompleated_) == "boolean", "showCompleated_ must be boolean, got" .. type(showCompleated_))
+
+        if not dialog.data.ok then
+            exitScript = true
+            break
+        end
+
+        if filetype_ ~= "ico" and filetype_ ~= "cur" and filetype_ ~= "ani" then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="The file type " .. filetype_ .. " is not supported"
+            }
+        else
+            filetype = filetype_ --[[@as "ico" | "cur" | "ani"]]
+        end
+
+        filename = filename_
+
+        excludedLayerNames = {}
+        if layer_ == "Visible layers" then
+            for _, layer in ipairs(sprite.layers) do
+                if not layer.isVisible then
+                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
+                end
+            end
+        elseif layer_ == "Active layer" then
+            for _, layer in ipairs(sprite.layers) do
+                if layer.name ~= app.activeLayer then
+                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
+                end
+            end
+        elseif layer_:sub(1, 7) == "Layer: " then
+            local layerName = layer_:sub(8)
+            for _, layer in ipairs(sprite.layers) do
+                if layer.name ~= layerName then
+                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
                 end
             end
         end
+
+        targetframeNums = {}
+        if frame_ == "All" then
+            for _, frame in ipairs(sprite.frames) do
+                targetframeNums[#targetframeNums + 1] = frame.frameNumber
+            end
+        elseif frame_:sub(1, 7) == "Frame: " then
+            targetframeNums[1] = tonumber(frame_:sub(8))
+        elseif frame_:sub(1, 5) == "Tag: " then
+            local tagName = frame_:sub(6)
+            for _, tag in ipairs(sprite.tags) do
+                if tag.name == tagName then
+                    for i = tag.fromFrame.frameNumber, tag.toFrame.frameNumber do
+                        targetframeNums[#targetframeNums + 1] = i
+                    end
+                end
+            end
+        end
+
+        if hotSpotX_ < 0 then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="Hot spot x is too small."
+            }
+        elseif hotSpotX_ >= sprite.width then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="Hot spot x is too big."
+            }
+        else
+            hotSpotX = hotSpotX_
+        end
+
+        if hotSpotY_ < 0 then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="Hot spot y is too small."
+            }
+        elseif hotSpotY_ >= sprite.height then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="Hot spot y is too big."
+            }
+        else
+            hotSpotY = hotSpotY_
+        end
+
+        framerate_ = math.floor(framerate_)
+        if framerate_ < 1 then
+            retype = true
+            app.alert{
+                title="Invalid configuration",
+                text="The frame rate is too small."
+            }
+        end
+
+        showCompleated = showCompleated_
+    until not retype
+
+    if not dialog.data.ok then return end
+end
+
+SetParamFromDialog()
+
+if exitScript then
+    return
+end
+
+print("Filetype: " .. filetype)
+print("Filename: " .. filename)
+print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
+print("Framerate: " .. framerate)
+print("Target cels: ")
+for _, layer in ipairs(sprite.layers) do
+    local excluded = false
+    for _, name in ipairs(excludedLayerNames) do
+        if layer.name == name then
+            excluded = true
+        end
     end
-else
-    if frame == "All" then
-        targetCels = sprite.cels
-    else
-        targetCels = { sprite.cels[tonumber(frame)] }
+
+    if not excluded then
+        for _, index in ipairs(targetframeNums) do
+            print("  " .. layer.name .. "[" .. index .. "]")
+        end
+    end
+end
+
+if #targetframeNums < 1 then
+    FailAlert("No frame to export.")
+    return
+end
+
+if #sprite.layers - #excludedLayerNames < 1 then
+    FailAlert("No layer to export.")
+    return
+end
+
+sprite = Sprite(app.activeSprite)
+for _, name in ipairs(excludedLayerNames) do
+    sprite:deleteLayer(name)
+end
+sprite:flatten()
+
+---@type Cel[]
+local targetCels = {}
+for _, cel in ipairs(sprite.cels) do
+    local included = false
+    for _, index in ipairs(targetframeNums) do
+        if cel.frameNumber == index then
+            included = true
+        end
+    end
+
+    if included then
+        targetCels[#targetCels + 1] = cel
     end
 end
 
@@ -515,7 +644,7 @@ end
 file:write(fileData)
 
 file:close()
-sprite:close()
+-- sprite:close()
 
 app.alert{
     title = "Export Finished",
