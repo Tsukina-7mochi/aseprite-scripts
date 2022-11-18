@@ -575,17 +575,21 @@ function GetColorSpriteSpace(x, y, cel)
     return transparent
 end
 
+function PackU32LE(value)
+    return ("<I4"):pack(value)
+end
+
 ---Create ico or cur file data of given cels
 ---@param targetCels Cel[]
 ---@param resourceType integer
 ---@param hotSpotX integer
 ---@param hotSpotY integer
----@return ByteStreamBuffer
+---@return string
 function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     local images = {}
     for i, cel in ipairs(targetCels) do
-        local colorData = ByteStreamBuffer()
-        local maskData = ByteStreamBuffer()
+        local colorData = ""
+        local maskData = ""
         local mask = 0
         local maskCount = 0
 
@@ -595,10 +599,7 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
 
             for x = 0, sprite.width - 1 do
                 local color = GetColorSpriteSpace(x, y, cel)
-                colorData:appendByte(color.b)
-                colorData:appendByte(color.g)
-                colorData:appendByte(color.r)
-                colorData:appendByte(0)
+                colorData = colorData .. ("I1I1I1I1"):pack(color.b, color.g, color.r, 0)
                 local alphaFlag = 0
                 if color.a == 0 then
                     alphaFlag = 1
@@ -607,21 +608,21 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
                 mask = mask << 1 | alphaFlag
                 maskCount = maskCount + 1
                 if maskCount == 8 then
-                    maskData:appendByte(mask)
+                    maskData = maskData .. ("I1"):pack(mask)
                     mask = 0
                     maskCount = 0
                 end
             end
 
             if maskCount ~= 0 then
-                maskData:appendByte(mask << (8 - maskCount))
+                maskData = maskData .. ("I1"):pack(mask << (8 - maskCount))
             end
 
             if #colorData % 4 ~= 0 then
-                colorData:appendMultiByteLE(0, 4 - #colorData % 4)
+                colorData = colorData .. ("\0"):rep(4 - #colorData % 4)
             end
             if #maskData % 4 ~= 0 then
-                maskData:appendMultiByteLE(0, 4 - #maskData % 4)
+                maskData = maskData .. ("\0"):rep(4 - #maskData % 4)
             end
         end
 
@@ -631,84 +632,96 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
         }
     end
 
-    local data = ByteStreamBuffer()
+    local data = ""
 
     -- file header
-    ---- reserved
-    data:appendMultiByteLE(0, 2)
-    ---- resource type (1: icon / 2: cursor)
-    data:appendMultiByteLE(resourceType, 2)
-    ---- number of images
-    data:appendMultiByteLE(#targetCels, 2)
+    local fileHeader = {
+        resevered = 0,
+        resourceType = resourceType,
+        numOfImgs = #targetCels
+    }
+    data = data .. ("<I2<I2<I2"):pack(
+        fileHeader.resevered,
+        fileHeader.resourceType,
+        fileHeader.numOfImgs
+    )
 
     -- icon header
     -- record offset of icon header to update info later
     local offsetAddresses = {}
     for index, frame in ipairs(targetCels) do
-        ---- width and height
-        data:appendByte(sprite.width)
-        data:appendByte(sprite.height)
-        ---- color count
-        data:appendByte(0)
-        ---- resevered
-        data:appendByte(0)
-        ---- hotspot x, y for cursor, reserverd for ico
-        data:appendMultiByteLE(hotSpotX, 2)
-        data:appendMultiByteLE(hotSpotY, 2)
-        ---- icon data size
-        dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask
-        data:appendMultiByteLE(dataSize, 4)
-        ---- offset until bitmap info header, deside later
-        offsetAddresses[index] = #data
-        data:appendMultiByteLE(0, 4)
+        local iconHeader = {
+            width = sprite.width,
+            height = sprite.height,
+            numOfColors = 0,
+            resevered = 0,
+            hotSpotX = hotSpotX,
+            hotSpotY = hotSpotY,
+            dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask,
+            dataOffset = 0  -- deside later
+        }
+
+        data = data .. ("I1I1I1I1<I2<I2<I4<I4"):pack(
+            iconHeader.width,
+            iconHeader.height,
+            iconHeader.numOfColors,
+            iconHeader.resevered,
+            iconHeader.hotSpotX,
+            iconHeader.hotSpotY,
+            iconHeader.dataSize,
+            iconHeader.dataOffset
+        )
+
+        offsetAddresses[index] = #data - 4
     end
 
     -- each icon (or cursor)
     for index, frame in ipairs(targetCels) do
         -- set offset in icon header
-        offset = ByteStreamBuffer()
-        offset:appendMultiByteLE(#data, 4)
-        data[offsetAddresses[index] + 1] = offset[1]
-        data[offsetAddresses[index] + 2] = offset[2]
-        data[offsetAddresses[index] + 3] = offset[3]
-        data[offsetAddresses[index] + 4] = offset[4]
+        data = data:sub(1, offsetAddresses[index]) .. PackU32LE(#data) .. data:sub(offsetAddresses[index] + 5)
 
-        -- bitmap info header
-        data:appendMultiByteLE(bitmapInfoHeaderSize, 4)
-        -- width and height
-        -- NOTE: why the height doubled?
-        data:appendMultiByteLE(sprite.width, 4)
-        data:appendMultiByteLE(sprite.height * 2, 4)
-        -- planes
-        data:appendMultiByteLE(1, 2)
-        -- bit per pixel: 32bit
-        data:appendMultiByteLE(32, 2)
-        -- compression: 0 (BI_RGB)
-        data:appendMultiByteLE(0, 4)
-        -- image size
-        -- NOTE: is it correct?
-        data:appendMultiByteLE(#images[index].color, 4)
-        -- pixel per meter, horizontal and vertical
-        data:appendMultiByteLE(0, 4)
-        data:appendMultiByteLE(0, 4)
-        -- N of pallets
-        data:appendMultiByteLE(0, 4)
-        -- N of important colors
-        data:appendMultiByteLE(0, 4)
+        local bitmapInfoHeader = {
+            size = bitmapInfoHeaderSize,
+            width = sprite.width,
+            -- why doubled?
+            height = sprite.height * 2,
+            planes = 1,
+            bitsPerPixel = 32,
+            compression = 0,
+            imageSize = #images[index].color,
+            pixelPerMeterX = 0,
+            pixelPerMeterY = 0,
+            numOfPalettes = 0,
+            numOfImportatntColors = 0
+        }
+
+        data = data .. ("<I4<I4<I4<I2<I2<I4<I4<I4<I4<I4<I4"):pack(
+            bitmapInfoHeader.size,
+            bitmapInfoHeader.width,
+            bitmapInfoHeader.height,
+            bitmapInfoHeader.planes,
+            bitmapInfoHeader.bitsPerPixel,
+            bitmapInfoHeader.compression,
+            bitmapInfoHeader.imageSize,
+            bitmapInfoHeader.pixelPerMeterX,
+            bitmapInfoHeader.pixelPerMeterY,
+            bitmapInfoHeader.numOfPalettes,
+            bitmapInfoHeader.numOfImportatntColors
+        )
 
         -- there is no palettes
 
         -- pixel data
-        data:appendByteStreamBuffer(images[index].color)
+        data = data .. images[index].color
 
         -- mask data data
-        data:appendByteStreamBuffer(images[index].mask)
+        data = data .. images[index].mask
     end
 
     return data
 end
 
----@type ByteStreamBuffer
+---@type string
 local fileData
 
 if filetype == "ico" then
@@ -716,73 +729,65 @@ if filetype == "ico" then
 elseif filetype == "cur" then
     fileData = CreateIcoOrCur(targetCels, 2, hotSpotX, hotSpotY)
 elseif filetype == "ani" then
-    fileData = ByteStreamBuffer()
+    fileData = ""
 
     local riffSizeIndex = 0
     local listSizeIndex = 0
 
-    fileData:appendString("RIFF")
+    fileData = fileData .. "RIFF"
     -- size of file, deside later
     riffSizeIndex = #fileData
-    fileData:appendMultiByteLE(0, 4)
+    fileData = fileData .. PackU32LE(0)
     -- signature
-    fileData:appendString("ACON")
+    fileData = fileData .. "ACON"
 
     -- animation header
-    fileData:appendString("anih")
+    fileData = fileData .. "anih"
     -- ani header size
-    fileData:appendMultiByteLE(36, 4)
+    fileData = fileData .. PackU32LE(36)
     -- data size?
-    fileData:appendMultiByteLE(36, 4)
+    fileData = fileData .. PackU32LE(36)
     -- number of frames
-    fileData:appendMultiByteLE(#targetCels, 4)
+    fileData = fileData .. PackU32LE(#targetCels)
     -- number of steps
-    fileData:appendMultiByteLE(#targetCels, 4)
+    fileData = fileData .. PackU32LE(#targetCels)
     -- width and height
     -- store zeros because images are stored as icon format
-    fileData:appendMultiByteLE(0, 4)
-    fileData:appendMultiByteLE(0, 4)
-    -- bits per pixel
-    fileData:appendMultiByteLE(32, 4)
+    fileData = fileData .. PackU32LE(0)
+    fileData = fileData .. PackU32LE(0)
+    -- bits per pixel, as the same as width and height
+    fileData = fileData .. PackU32LE(0)
     -- planes
-    fileData:appendMultiByteLE(1, 4)
+    fileData = fileData .. PackU32LE(1)
     -- frame rate
-    fileData:appendMultiByteLE(framerate, 4)
+    fileData = fileData .. PackU32LE(framerate)
     -- flags: 0b01 (no sequence data, ico file in LIST)
-    fileData:appendMultiByteLE(1, 4)
+    fileData = fileData .. PackU32LE(1)
 
     -- LIST header
-    fileData:appendString("LIST")
+    fileData = fileData .. "LIST"
     -- LIST size
     listSizeIndex = #fileData
-    fileData:appendMultiByteLE(0, 4)
+    fileData = fileData .. PackU32LE(0)
     -- signature
-    fileData:appendString("fram")
+    fileData = fileData .. "fram"
 
     -- each image as cur
     for _, cel in ipairs(targetCels) do
-        fileData:appendString("icon")
+        fileData = fileData .. "icon"
 
         local curData = CreateIcoOrCur({cel}, 2, hotSpotX, hotSpotY)
-        fileData:appendMultiByteLE(#curData, 4)
-        fileData:appendByteStreamBuffer(curData)
+        fileData = fileData .. PackU32LE(#curData)
+        fileData = fileData .. curData
     end
 
     local listSize = #fileData - listSizeIndex - 4
-    local sizeBsb = ByteStreamBuffer()
-    sizeBsb:appendMultiByteLE(listSize, 4)
-    fileData[listSizeIndex + 1] = sizeBsb[1]
-    fileData[listSizeIndex + 2] = sizeBsb[2]
-    fileData[listSizeIndex + 3] = sizeBsb[3]
-    fileData[listSizeIndex + 4] = sizeBsb[4]
-    sizeBsb:clear()
+    local sizeStr = PackU32LE(listSize)
+    fileData = fileData:sub(1, listSizeIndex) .. sizeStr .. fileData:sub(listSizeIndex + 5)
 
     local riffSize = #fileData - riffSizeIndex - 4
-    sizeBsb:appendMultiByteLE(riffSize, 4)
-    fileData[riffSizeIndex + 1] = sizeBsb[1]
-    fileData[riffSizeIndex + 2] = sizeBsb[2]
-    fileData[riffSizeIndex + 3] = sizeBsb[3]
-    fileData[riffSizeIndex + 4] = sizeBsb[4]
+    sizeStr = PackU32LE(riffSize)
+    fileData = fileData:sub(1, riffSizeIndex) .. sizeStr .. fileData:sub(riffSizeIndex + 5)
 else
     FailAlert("The format \"" .. filetype "\" is not implemented.")
     return
@@ -794,9 +799,7 @@ if not file then
   return
 end
 
-for i = 1, #fileData do
-    file:write(string.format("%c", fileData[i]))
-end
+file:write(fileData)
 
 file:close()
 sprite:close()
