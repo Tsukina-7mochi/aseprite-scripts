@@ -1,3 +1,8 @@
+-- Version: 0.1.0
+-- GitHub: https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/Export%20as%20ico%20cur%20ani.lua
+--
+-- Export sprite as ico or cur, ani
+
 -- shows alert with failure message
 function FailAlert(text)
     if app.isUIAvailable then
