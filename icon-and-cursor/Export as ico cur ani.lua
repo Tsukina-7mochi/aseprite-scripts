@@ -217,7 +217,7 @@ if filetype == "ani" then
         end
     end
 else
-    if frame == "all" then
+    if frame == "All" then
         targetCels = sprite.cels
     else
         targetCels = { sprite.cels[tonumber(frame)] }
@@ -226,51 +226,65 @@ end
 
 local bitmapInfoHeaderSize = 40
 
-local transparent = { r=0, g=0, b=0, a=0 }
+---`true` if the native endian is little endian, `false` otherwise
+local isLittleEndian = string.pack("=I2", 1):byte(1) == 1
+
+---Gets color from cel image in sprite space
+---@param x integer
+---@param y integer
+---@param cel Cel
+---@return string color BGRA color
 function GetColorSpriteSpace(x, y, cel)
     if x < cel.bounds.x then
-        return transparent
+        return PackU32LE(0x00000000)
     end
     if y < cel.bounds.y then
-        return transparent
+        return PackU32LE(0x00000000)
     end
     if x >= cel.bounds.x + cel.bounds.width then
-        return transparent
+        return PackU32LE(0x00000000)
     end
     if y >= cel.bounds.y + cel.bounds.height then
-        return transparent
+        return PackU32LE(0x00000000)
     end
 
     local pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
     if cel.image.colorMode == ColorMode.RGB then
-        return {
-            r=app.pixelColor.rgbaR(pixel),
-            g=app.pixelColor.rgbaG(pixel),
-            b=app.pixelColor.rgbaB(pixel),
-            a=app.pixelColor.rgbaA(pixel)
-        }
+        if isLittleEndian then
+            -- ordering: ABGR
+            return (">I3I1"):pack(pixel & 0xFFFFFF, pixel & 0xFF)
+        else
+            -- ordering: RGBA
+            return ("<I3I1"):pack(pixel >> 8, pixel & 0xFF)
+        end
     elseif cel.image.colorMode == ColorMode.GRAY then
-        return {
-            r=app.pixelColor.grayaV(pixel),
-            g=app.pixelColor.grayaV(pixel),
-            b=app.pixelColor.grayaV(pixel),
-            a=app.pixelColor.grayaA(pixel)
-        }
-    elseif cel.image.colorMode == ColorMode.INDEXED then
-        if pixel == cel.image.spec.transparentColor then
-            return transparent
+        local v = 0
+        if isLittleEndian then
+            -- ordering: AV
+            v = pixel & 0xFF
+        else
+            -- ordering: VA
+            v = (pixel & 0xFF00) >> 8
         end
 
-        local c = sprite.palettes[1]:getColor(pixel)
-        return {
-            r=c.red,
-            g=c.green,
-            b=c.blue,
-            a=c.alpha
-        }
+        return ("I1I1I1I1"):pack(v, v, v, pixel & 0xFF)
+    elseif cel.image.colorMode == ColorMode.INDEXED then
+        if pixel == cel.image.spec.transparentColor then
+            return PackU32LE(0x00000000)
+        end
+
+        local color = sprite.setPalette[1]:getColor(pixel).rgbaPixel
+
+        if isLittleEndian then
+            -- ordering: ABGR
+            return (">I3I1"):pack(color & 0xFFFFFF, color & 0xFF)
+        else
+            -- ordering: RGBA
+            return ("<I3I1"):pack(color >> 8, color & 0xFF)
+        end
     end
 
-    return transparent
+    return PackU32LE(0x00000000)
 end
 
 function PackU32LE(value)
@@ -284,6 +298,7 @@ end
 ---@param hotSpotY integer
 ---@return string
 function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
+    -- create image data
     local images = {}
     for i, cel in ipairs(targetCels) do
         local colorData = ""
@@ -297,9 +312,9 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
 
             for x = 0, sprite.width - 1 do
                 local color = GetColorSpriteSpace(x, y, cel)
-                colorData = colorData .. ("I1I1I1I1"):pack(color.b, color.g, color.r, 0)
+                colorData = colorData .. color:sub(1, 3) .. "\0"
                 local alphaFlag = 0
-                if color.a == 0 then
+                if color:byte(4) == 0 then
                     alphaFlag = 1
                 end
 
