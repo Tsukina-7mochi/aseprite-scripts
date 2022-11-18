@@ -646,8 +646,10 @@ file:write(fileData)
 file:close()
 -- sprite:close()
 
-app.alert{
-    title = "Export Finished",
-    text = "File is successfully exported.",
-    buttons = "OK"
-}
+if showCompleated then
+    app.alert{
+        title = "Export Finished",
+        text = "File is successfully exported.",
+        buttons = "OK"
+    }
+end
