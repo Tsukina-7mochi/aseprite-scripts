@@ -1,11 +1,33 @@
 -- shows alert with failure message
 function FailAlert(text)
-  app.alert{
-    title = "Export Failed",
-    text = text,
-    buttons = "OK"
-  }
+    if app.isUIAvailable then
+        app.alert{
+            title = "Export Failed",
+            text = text,
+            buttons = "OK"
+        }
+    else
+        io.stdout:write("[Export failed] " .. text)
+    end
 end
+
+util = {
+    ---split string by `sep`
+    ---@param str string
+    ---@param sep string
+    split=function(str, sep)
+        if sep == nil then
+            sep = "%s"
+        end
+
+        local result = {}
+        for s in str:gmatch("([" .. sep .. "]+)") do
+            table.insert(result, s)
+        end
+
+        return result
+    end
+}
 
 ------------------------------
 -- ENTRY
@@ -53,6 +75,8 @@ local targetframeNums = {}
 local excludedLayerNames = {}
 ---@type boolean
 local exitScript = false
+---@type boolean
+local printProcessInfo = false
 
 function SetParamFromDialog()
     local fileTypes = { "ico", "cur", "ani" }
@@ -296,28 +320,116 @@ function SetParamFromDialog()
     if not dialog.data.ok then return end
 end
 
-SetParamFromDialog()
+function SetParamFromCLIArg()
+    printProcessInfo = true
+
+    for key, value in pairs(app.params) do
+        key = key:lower()
+
+        if key == "type" or "filetype" then
+            if value == "ico" or value == "cur" or value == "ani" then
+                filetype = value
+            else
+                io.stderr:write("[Export failed] Invalid file type " .. value)
+            end
+            exitScript = true
+        elseif key == "out" or "filename" then
+            filename = value
+        elseif key == "hotspotX" then
+            local num = tonumber(value)
+            if type(num) ~= "number" then
+                io.stderr:write("[Export failed] " .. value .. " is not valid for hot spot X")
+                exitScript = true
+            end
+            if num < 0 or num >= sprite.width then
+                io.stderr:write("[Export failed] " .. value .. " is out of range for hot spot X")
+                exitScript = true
+            end
+            hotSpotX = num --[[@as number]]
+        elseif key == "hotspotY" then
+            local num = tonumber(value)
+            if type(num) ~= "number" then
+                io.stderr:write("[Export failed] " .. value .. " is not valid for hot spot Y")
+                exitScript = true
+            end
+            if num < 0 or num >= sprite.height then
+                io.stderr:write("[Export failed] " .. value .. " is out of range for hot spot Y")
+                exitScript = true
+            end
+            hotSpotY = num --[[@as number]]
+        elseif key == "framerate" then
+            local num = tonumber(value)
+            if type(num) ~= "number" then
+                io.stderr:write("[Export failed] " .. value .. " is not valid for framerate")
+                exitScript = true
+            end
+            if num < 0 then
+                io.stderr:write("[Export failed] " .. value .. " is out of range for framerate")
+                exitScript = true
+            end
+            framerate = num --[[@as number]]
+        elseif key == "frames" then
+            local s = util.split(value, ",")
+            for _, str in ipairs(s) do
+                local num = tonumber(str)
+                if type(num) == "number" then
+                    targetframeNums[#targetframeNums + 1] = num
+                end
+            end
+        elseif key == "leyers" then
+            if value == "__visible" then
+                for _, layer in ipairs(sprite.layers) do
+                    if not layer.isVisible then
+                        excludedLayerNames[#excludedLayerNames + 1] = layer.name
+                    end
+                end
+            else
+                local included = util.split(value, ",")
+
+                for _, layer in ipairs(sprite.layers) do
+                    local toExclude = true
+                    for _, name in ipairs(included) do
+                        if layer.name == name then
+                            toExclude = false
+                        end
+                    end
+                    if toExclude then
+                        excludedLayerNames[#excludedLayerNames + 1] = layer.name
+                    end
+                end
+            end
+        end
+    end
+end
+
+if app.isUIAvailable then
+    SetParamFromDialog()
+else
+    SetParamFromCLIArg()
+end
 
 if exitScript then
     return
 end
 
-print("Filetype: " .. filetype)
-print("Filename: " .. filename)
-print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
-print("Framerate: " .. framerate)
-print("Target cels: ")
-for _, layer in ipairs(sprite.layers) do
-    local excluded = false
-    for _, name in ipairs(excludedLayerNames) do
-        if layer.name == name then
-            excluded = true
+if printProcessInfo then
+    print("Filetype: " .. filetype)
+    print("Filename: " .. filename)
+    print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
+    print("Framerate: " .. framerate)
+    print("Target cels: ")
+    for _, layer in ipairs(sprite.layers) do
+        local excluded = false
+        for _, name in ipairs(excludedLayerNames) do
+            if layer.name == name then
+                excluded = true
+            end
         end
-    end
 
-    if not excluded then
-        for _, index in ipairs(targetframeNums) do
-            print("  " .. layer.name .. "[" .. index .. "]")
+        if not excluded then
+            for _, index in ipairs(targetframeNums) do
+                print("  " .. layer.name .. "[" .. index .. "]")
+            end
         end
     end
 end
@@ -644,12 +756,16 @@ end
 file:write(fileData)
 
 file:close()
--- sprite:close()
+sprite:close()
 
 if showCompleated then
-    app.alert{
-        title = "Export Finished",
-        text = "File is successfully exported.",
-        buttons = "OK"
-    }
+    if app.isUIAvailable then
+        app.alert{
+            title = "Export Finished",
+            text = "Successfully exported to " .. filename,
+            buttons = "OK"
+        }
+    else
+        print("Successfully exported to " .. filename)
+    end
 end
