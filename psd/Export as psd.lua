@@ -1,7 +1,10 @@
--- export as psd file
---
--- see: https://github.com/Tsukina-7mochi/aseprite-scripts
+-- export sprite as psd file
 ------------------------------------------------------------
+
+ScriptInfo = {
+    version = Version("1.3.0-alpha"),
+    remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
+}
 
 -- returns whether given value is integer
 function isInteger(inVal)
