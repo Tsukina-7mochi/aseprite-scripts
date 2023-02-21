@@ -6,126 +6,104 @@ ScriptInfo = {
     remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
 }
 
--- returns whether given value is integer
-function isInteger(inVal)
-    if type(inVal)~="number" then
+--- Return whether given number is an integer
+---@param val any
+---@return boolean
+function IsInteger(val)
+    if type(val)~="number" then
         return false
-    else
-        return inVal%1 ..""=="0"
     end
+
+    return val % 1 .. "" == "0"
 end
 
--- writes data with big endian
-function write(file, size, data)
-  if not file then return end
-  if not isInteger(size) then return end
-  if size < 1 then return end
-
-  local mask = 0xff << (8 * (size - 1))
-  for i = 1, size do
-    file:write(string.format("%c", (data & mask) >> (8 * (size - i))))
-    mask = mask >> 8
-  end
-end
-
--- writes string (for multi-byte character)
-function writeStr(file, str)
-  if not file then return end
-  if not str then return end
-
-  for i = 1, #str do
-    file:write(string.format("%c", str:byte(i)))
-  end
-end
-
--- returns the sum of the table value
-function sum(arr)
-  local result = 0
-  for i, n in ipairs(arr) do
-    if type(n) == "number" then
-      result = result + n
+--- Compress binary data with PackBits
+---@param data string
+---@return string
+function PackBits(data)
+    if #data == 0 then
+        return data
     end
-  end
 
-  return result
-end
+    local result = ""
+    -- buffer stack
+    local stack = ""
 
--- Compresses with RLE (PackBits)
-function packBits(arr)
-  local size = 0xFF
+    -- -1: undetermined
+    --  0: continuous value
+    --  1: discontinuous value
+    local state = -1
+    local index = 1
+    while index <= #data do
+        local currentData = data:sub(index, index)
+        local stackTop = stack:sub(1, 1)
 
-  if #arr == 0 then
-    return arr
-  end
+        if state == -1 then
+            if #stack ~= 0 then
+                -- descide state
+                if stackTop == currentData then
+                    state = 0
+                else
+                    state = 1
+                end
+            end
 
-  local result = {}
-  local buff = {}
-  local flag = -1
-
-  local i = 1
-  while i <= #arr do
-    if flag == 0 then
-      -- continuous
-      if buff[#buff] == arr[i] then
-        buff[#buff+1] = arr[i]
-      else
-        result[#result+1] = size - (#buff - 2)
-        result[#result+1] = buff[1]
-        buff = { arr[i] }
-        flag = -1
-      end
-    elseif flag == 1 then
-      -- discontinuous
-      if buff[#buff] ~= arr[i] then
-        buff[#buff+1] = arr[i]
-      else
-        result[#result+1] = #buff - 2
-        for j = 1, #buff-1 do result[#result+1] = buff[j] end
-        buff = { arr[i], arr[i] }
-        flag = 0
-      end
-    else
-      -- undetermined
-      if #buff ~= 0 then
-        if buff[#buff] == arr[i] then
-          flag = 0
-        else
-          flag = 1
+            stack = currentData .. stack
+        elseif state == 0 then
+            if stackTop == currentData then
+                -- just push value
+                stack = currentData .. stack
+            else
+                -- write out buffer contents and reset state
+                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+                stack = currentData
+                state = -1
+            end
+        elseif state == 1 then
+            if stackTop ~= currentData then
+                -- just push value
+                stack = currentData .. stack
+            else
+                -- write out buffer contents and change state
+                result = result .. ('B'):pack(#stack - 2) .. stack:sub(2, -1):reverse()
+                stack = currentData .. currentData
+                state = 0
+            end
         end
-      end
-      buff[#buff+1] = arr[i]
+
+        if #stack > 0x7F then
+            -- write out buffer contents
+            if state == 0 then
+                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+            elseif state == 1 or state == -1 then
+                result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+            end
+
+            -- reset state
+            state = -1
+            stack = ""
+        end
+
+        index = index + 1
     end
 
-    if #buff > size/2 then
-      if flag == 0 then
-        result[#result+1] = size - (#buff - 2)
-        result[#result+1] = buff[1]
-      else
-        result[#result+1] = #buff - 1
-        for j = 1, #buff do result[#result+1] = buff[j] end
-      end
-      buff = {}
-      flag = -1
+    if #stack > 0 then
+        -- write out buffer contents
+        if state == 0 then
+            result = result .. ('B'):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
+        elseif state == 1 or state == -1 then
+            result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+        end
     end
+    -- print(result:byte(1, -1))
 
-    i = i + 1
-  end
-
-  if #buff ~= 0 then
-    if flag == 0 then
-      result[#result+1] = size - (#buff - 2)
-      result[#result+1] = buff[1]
-    else
-      result[#result+1] = #buff - 1
-      for j = 1, #buff do result[#result+1] = buff[j] end
-    end
-  end
-
-  return result
+    return result
 end
+
+Util = {}
 
 -- shows alert with failure message
-function failAlert(text)
+function Util.failAlert(text)
   app.alert{
     title = "Export Failed",
     text = text,
@@ -137,13 +115,13 @@ end
 -- ENTRY
 --------------------------------------------------
 if app.apiVersion < 1 then
-  failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
+  Util.failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
   return
 end
 
 local sprite = app.activeSprite
 if not sprite then
-  failAlert("No sprite selected.")
+  Util.failAlert("No sprite selected.")
   return
 end
 
@@ -170,7 +148,8 @@ blendModeTable[BlendMode.DIVIDE] = "fdiv"
 
 -- show dialog to select output file
 local filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd"
-local frameList = {}
+local frameAllString = "All frames as group"
+local frameList = { frameAllString }
 for i = 1, #sprite.frames do
   table.insert(frameList, "" .. i)
 end
@@ -183,7 +162,7 @@ dialog:file{
   title = "Save as...",
   save = true,
   filename = filename,
-  filetypes = "psd",
+  filetypes = { "psd" },
 }:combobox{
   id = "frameNum",
   label = "Frame",
@@ -206,47 +185,280 @@ dialog:show()
 
 if not dialog.data.ok then return end
 
-filename = dialog.data.filename
-frameNum = tonumber(dialog.data.frameNum)
-showCompleated = dialog.data.showCompleated
+filename = dialog.data.filename             --[[@as string]]
+---@type string | number
+local frameNum = dialog.data.frameNum       --[[@as string]]
+if frameNum ~= frameAllString then
+    frameNum = tonumber(frameNum)           --[[@as number]]
+end
+showCompleated = dialog.data.showCompleated --[[@as boolean]]
 
-if not isInteger(frameNum) then
-  failAlert("The frame number " .. frameNum .. " is not valid.")
+if not IsInteger(frameNum) then
+  Util.failAlert("The frame number " .. frameNum .. " is not valid.")
   return
 end
-if frameNum < 1 or #sprite.frames < frameNum then
-  failAlert("The frame number " .. frameNum .. " is out of range.")
+if frameNum ~= frameAllString and (frameNum < 1 or #sprite.frames < frameNum) then
+  Util.failAlert("The frame number " .. frameNum .. " is out of range.")
   return
 end
 
-file = io.open(filename, "wb")
+local file = io.open(filename, "wb")
 if not file then
-  failAlert("Failed to open the file to export.")
+  Util.failAlert("Failed to open the file to export.")
   return
 end
 
+function PackU32BE(data)
+    return (">4"):pack(data)
+end
 
--- export psd file from here
+function PackU16BE(data)
+    return (">2"):pack(data)
+end
 
--- File Header
-local fh = {
-  signature = "8BPS",
-  version = 1,
-  reserved = 0,
-  channels = 4,
-  height = sprite.height,
-  width = sprite.width,
-  depth = 8,
-  colorMode = 3
+function PackU8(data)
+    return ("B"):pack(data)
+end
+
+function ToPascalString(str, padBase, maxLength)
+    local str_ = ""
+    if type(maxLength) == "number" then
+        str_ = str:sub(1, maxLength - 1)
+    else
+        str_ = str
+    end
+    return PackU8(#str_) .. str_ .. PackU8(0):rep(padBase - 1 - #str_ % padBase)
+end
+
+-- ==============================
+-- File Header Section
+-- ==============================
+local fileHeaderData = table.concat({
+    -- signature
+    "8BPS",
+    -- version = 1
+    PackU16BE(1),
+    -- resevered = 0
+    (">6"):pack(0),
+    -- channels = 4 (RGBA)
+    PackU16BE(4),
+    -- height
+    PackU32BE(sprite.height),
+    -- width
+    PackU32BE(sprite.width),
+    -- depth = 8
+    PackU16BE(8),
+    -- color mode = 3 (RGB)
+    PackU16BE(3),
+})
+file:write(fileHeaderData)
+
+-- ==============================
+-- Color Mode Data Section
+-- ==============================
+local colorModeData = table.concat({
+    -- size = 0
+    PackU32BE(0)
+})
+file:write(colorModeData)
+
+-- ==============================
+-- Image Resources Section
+-- ==============================
+local imageResourcesData = table.concat({
+    -- size = 0
+    PackU32BE(0)
+})
+file:write(imageResourcesData)
+
+-- ==============================
+-- Layer and Mask Information Section
+-- ==============================
+
+local layerAndMaskDataBuffer = {
+    -- size TBD
+    "",
+    -- layer info: size TBD
+    "",
+    -- layer info: layer count: TBD (due to the groups),
+    "",
 }
--- Color Mode Data
-local cm = {
-  size = 0;
-}
--- Image Resources
-local ir = {
-  size = 0
-}
+local lmSizeIndex = 0
+local lmLiSizeIndex = 1
+local lmLiLayerCountIndex = 2
+local layerCount = 0
+
+-- layer info -> laye records
+---@param layerGroup Layer[]
+---@param frameNum integer
+---@return string layerRecord
+---@return string imageData
+---@return integer layerCount
+local function createLayerRecordAndImageData(layerGroup, frameNum)
+    ---@param image Image
+    ---@return string
+    local function createImageData(image)
+        ---@param pixelValue any
+        ---@return integer red
+        ---@return integer green
+        ---@return integer blue
+        ---@return integer alpha
+        local function getRGBColor(pixelValue)
+            if image.colorMode == ColorMode.RGB then
+                return app.pixelColor.rgbaR(pixelValue),
+                    app.pixelColor.rgbaG(pixelValue),
+                    app.pixelColor.rgbaB(pixelValue),
+                    app.pixelColor.rgbaA(pixelValue)
+            elseif image.colorMode == ColorMode.GRAY then
+                return app.pixelColor.grayaV(pixelValue),
+                    app.pixelColor.grayaV(pixelValue),
+                    app.pixelColor.grayaV(pixelValue),
+                    app.pixelColor.grayaA(pixelValue)
+            elseif image.colorMode == ColorMode.INDEXED then
+                local color = sprite.palettes[1]:getColor(pixelValue)
+                return color.red, color.green, color.blue, color.alpha * (pixelValue == 0)
+            end
+        end
+
+        local buffer = { r = {}, g = {}, b = {}, a = {} }
+        for y = 0, image.width do
+            local rowBuffer = { r = {}, g = {}, b = {}, a = {} }
+            for x = 0, image.height do
+                local r, g, b, a = getRGBColor(image:getPixel(x, y))
+                rowBuffer.r[#rowBuffer.r + 1] = PackU8(r)
+                rowBuffer.g[#rowBuffer.g + 1] = PackU8(g)
+                rowBuffer.b[#rowBuffer.b + 1] = PackU8(b)
+                rowBuffer.a[#rowBuffer.a + 1] = PackU8(a)
+            end
+            buffer.r[#buffer.r + 1] = PackBits(table.concat(rowBuffer.r))
+            buffer.g[#buffer.r + 1] = PackBits(table.concat(rowBuffer.g))
+            buffer.b[#buffer.r + 1] = PackBits(table.concat(rowBuffer.b))
+            buffer.a[#buffer.r + 1] = PackBits(table.concat(rowBuffer.a))
+        end
+
+        return table.concat({
+            -- compression = 1 (RLE)
+            (">2>2>2>2"):pack(1, 1, 1, 1),
+            -- size
+            (">2>2>2>2"):pack(
+                #buffer.r + 2 * image.height + 2,
+                #buffer.g + 2 * image.height + 2,
+                #buffer.b + 2 * image.height + 2,
+                #buffer.a + 2 * image.height + 2
+            ),
+            -- data
+            table.concat(buffer)
+        })
+    end
+
+    local layerCount = 0
+    local dataBuffer = {}
+    for _, layer in ipairs(layerGroup) do
+        local flags = 0
+        if layer.isVisible then
+            flags = flags | 2
+        end
+
+        if not layer.isGroup then
+            -- a normal layer
+            local cel = layer:cel(frameNum)
+            if not cel then
+                -- an empty layer
+                local buffer = {
+                    -- top
+                    PackU32BE(0),
+                    -- left
+                    PackU32BE(0),
+                    -- botom
+                    PackU32BE(1),
+                    -- right
+                    PackU32BE(1),
+                    -- channel count
+                    PackU16BE(4),
+                    -- channel information (id, size) x4
+                    (">2>4"):pack(0, 6),
+                    (">2>4"):pack(1, 6),
+                    (">2>4"):pack(2, 6),
+                    (">2>4"):pack(0xFFFF, 6),
+                    -- blend mode signature
+                    "8BIM",
+                    -- blend mode
+                    "norm",
+                    -- opacity
+                    PackU8(255),
+                    -- clipping
+                    PackU8(0),
+                    -- flags
+                    PackU8(flags),
+                    -- filler
+                    PackU8(0),
+                    -- extra data field size: TBD
+                    "",
+                    -- layer mask: size = 0
+                    PackU32BE(0),
+                    -- blending ranges data: size = 0
+                    PackU32BE(0),
+                    -- layer name
+                    ToPascalString(layer.name, 128)
+                }
+
+                -- set extra data field size
+                buffer[16] = PackU32BE(4 + 4 + #buffer[19])
+
+                dataBuffer[#dataBuffer + 1] = table.concat(buffer)
+            else
+                -- a layer with content
+                local buffer = {
+                    -- top
+                    PackU32BE(cel.bounds.y),
+                    -- left
+                    PackU32BE(cel.bounds.x),
+                    -- botom
+                    PackU32BE(cel.bounds.y + cel.bounds.height),
+                    -- right
+                    PackU32BE(cel.bounds.x + cel.bounds.width),
+                    -- channel count
+                    PackU16BE(4),
+                    -- channel information (id, size) x4
+                    (">2>4"):pack(0, 6),
+                    (">2>4"):pack(1, 6),
+                    (">2>4"):pack(2, 6),
+                    (">2>4"):pack(0xFFFF, 6),
+                    -- blend mode signature
+                    "8BIM",
+                    -- blend mode
+                    "norm",
+                    -- opacity
+                    PackU8(255),
+                    -- clipping
+                    PackU8(0),
+                    -- flags
+                    PackU8(flags),
+                    -- filler
+                    PackU8(0),
+                    -- extra data field size: TBD
+                    "",
+                    -- layer mask: size = 0
+                    PackU32BE(0),
+                    -- blending ranges data: size = 0
+                    PackU32BE(0),
+                    -- layer name
+                    ToPascalString(layer.name, 128)
+                }
+
+                -- set extra data field size
+                buffer[16] = PackU32BE(4 + 4 + #buffer[19])
+
+                dataBuffer[#dataBuffer + 1] = table.concat(buffer)
+            end
+        else
+            -- a group
+        end
+    end
+end
+
+createLayerRecordAndImageData(sprite.layers, 1)
+
 -- Layer and Mask Information
 local lm = {
   size = 0,
@@ -479,17 +691,17 @@ function setLayerInfo(group)
           for x = 0, cel.bounds.width-1 do
             local color = { r = 0, g = 0, b = 0, a = 0 }
             local pixel = image:getPixel(x, y)
-            if image.colorMode == ColorMode.RGB then
+            if image.colorModeData == ColorMode.RGB then
               color.r = app.pixelColor.rgbaR(pixel)
               color.g = app.pixelColor.rgbaG(pixel)
               color.b = app.pixelColor.rgbaB(pixel)
               color.a = app.pixelColor.rgbaA(pixel)
-            elseif image.colorMode == ColorMode.GRAY then
+            elseif image.colorModeData == ColorMode.GRAY then
               color.r = app.pixelColor.grayaV(pixel)
               color.g = app.pixelColor.grayaV(pixel)
               color.b = app.pixelColor.grayaV(pixel)
               color.a = app.pixelColor.grayaA(pixel)
-            elseif image.colorMode == ColorMode.INDEXED then
+            elseif image.colorModeData == ColorMode.INDEXED then
               local c = sprite.palettes[1]:getColor(pixel)
               color.r = c.red
               color.g = c.green
@@ -666,17 +878,17 @@ for y = 0, fsprite.height-1 do
     local color = { r = 0, g = 0, b = 0, a = 0 }
     if fcel.bounds.x <= x and x < fcel.bounds.x + fcel.bounds.width and fcel.bounds.y <= y and y < fcel.bounds.y + fcel.bounds.height then
       local pixel = fimage:getPixel(x - fcel.bounds.x, y - fcel.bounds.y)
-      if fimage.colorMode == ColorMode.RGB then
+      if fimage.colorModeData == ColorMode.RGB then
         color.r = app.pixelColor.rgbaR(pixel)
         color.g = app.pixelColor.rgbaG(pixel)
         color.b = app.pixelColor.rgbaB(pixel)
         color.a = app.pixelColor.rgbaA(pixel)
-      elseif fimage.colorMode == ColorMode.GRAY then
+      elseif fimage.colorModeData == ColorMode.GRAY then
         color.r = app.pixelColor.grayaV(pixel)
         color.g = app.pixelColor.grayaV(pixel)
         color.b = app.pixelColor.grayaV(pixel)
         color.a = app.pixelColor.grayaA(pixel)
-      elseif fimage.colorMode == ColorMode.INDEXED then
+      elseif fimage.colorModeData == ColorMode.INDEXED then
         local c = fsprite.palettes[1]:getColor(pixel)
         color.r = c.red
         color.g = c.green
