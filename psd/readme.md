@@ -25,7 +25,7 @@
 
 ## Update Log
 
--1.3.0
+- 1.3.0
   - Implement animated psd export
 - 1.2.1
   - Enriched User Interface.
