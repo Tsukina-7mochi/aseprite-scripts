@@ -527,7 +527,7 @@ function ExportToPsd(sprite, filename, frameNum)
         for _, index in ipairs(frameNum --[[ @as integer[] ]]) do
             local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, index, {
                 name = "Frame " .. index,
-                isVisible = (index == 1),
+                isVisible = (index == frameNum[1]),
                 isExpanded = false
             })
             lrBuffer[#lrBuffer + 1] = lrData
