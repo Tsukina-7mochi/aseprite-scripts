@@ -667,7 +667,7 @@ if app.apiVersion < 1 then
             buttons = "OK"
         })
     else
-        io.stdout:write("Export failed: this script requires Aseprite v1.2.10-beta3 or above.")
+        io.stderr:write("Export failed: this script requires Aseprite v1.2.10-beta3 or above.")
     end
 
     return
@@ -682,7 +682,7 @@ if not sprite then
             buttons = "OK"
         })
     else
-        io.stdout:write("Export failed: No sprite to export.")
+        io.stderr:write("Export failed: No sprite to export.")
     end
 
     return
@@ -781,7 +781,7 @@ local function getOptionsFromCLIArgument()
                 end
             end
         else
-            io.stdout:write("Warning: " .. key .. "is not valid option")
+            print("Warning: " .. key .. "is not valid option")
         end
     end
 
@@ -790,14 +790,18 @@ local function getOptionsFromCLIArgument()
     if filename == nil then
         proceed= false
         filename = ""
-        io.stdout:write("Export failed: output filename is required.")
+        io.stderr:write("Export failed: output filename is required.")
     elseif frameIndex == nil then
         proceed = false
         frameIndex = -1
-        io.stdout:write("Export failed: target frame index is required.")
+        io.stderr:write("Export failed: target frame index is required.")
     end
 
     return filename --[[ @as string ]], frameIndex --[[ @as integer | integer[] ]], true, proceed
+end
+
+if not app.isUIAvailable then
+    print("Export as psd: version " .. tostring(ScriptInfo.version))
 end
 
 local function getOptions()
@@ -806,10 +810,6 @@ local function getOptions()
     else
         return getOptionsFromCLIArgument()
     end
-end
-
-if not app.isUIAvailable then
-    print("Version: " .. tostring(ScriptInfo.version))
 end
 
 local filename, frameIndex, showCompleated, proceed = getOptions()
@@ -827,7 +827,7 @@ if not succeeded then
             buttons = "OK"
         })
     else
-        io.stdout:write("Export failed: " .. message)
+        io.stderr:write("Export failed: " .. message)
     end
 end
 if app.isUIAvailable then
