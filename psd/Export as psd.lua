@@ -95,127 +95,26 @@ function PackBits(data)
             result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
         end
     end
-    -- print(result:byte(1, -1))
 
     return result
 end
 
-Util = {}
-
--- shows alert with failure message
-function Util.failAlert(text)
-  app.alert{
-    title = "Export Failed",
-    text = text,
-    buttons = "OK"
-  }
-end
-
---------------------------------------------------
--- ENTRY
---------------------------------------------------
-if app.apiVersion < 1 then
-  Util.failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
-  return
-end
-
-local sprite = app.activeSprite
-if not sprite then
-  Util.failAlert("No sprite selected.")
-  return
-end
-
-local blendModeTable = {}
-blendModeTable[BlendMode.NORMAL] = "norm"
-blendModeTable[BlendMode.MULTIPLY] = "mul "
-blendModeTable[BlendMode.SCREEN] = "scrn"
-blendModeTable[BlendMode.OVERLAY] = "over"
-blendModeTable[BlendMode.DARKEN] = "dark"
-blendModeTable[BlendMode.LIGHTEN] = "lite"
-blendModeTable[BlendMode.COLOR_DODGE] = "div "
-blendModeTable[BlendMode.COLOR_BURN] = "idiv"
-blendModeTable[BlendMode.HARD_LIGHT] = "hLit"
-blendModeTable[BlendMode.SOFT_LIGHT] = "sLit"
-blendModeTable[BlendMode.DIFFERENCE] = "diff"
-blendModeTable[BlendMode.EXCLUSION] = "smud"
-blendModeTable[BlendMode.HSL_HUE] = "hue "
-blendModeTable[BlendMode.HSL_SATURATION] = "sat "
-blendModeTable[BlendMode.HSL_COLOR] = "colr"
-blendModeTable[BlendMode.HSL_LUMINOSITY] = "lum "
-blendModeTable[BlendMode.ADDITION] = "lddg"
-blendModeTable[BlendMode.SUBTRACT] = "fsub"
-blendModeTable[BlendMode.DIVIDE] = "fdiv"
-
--- show dialog to select output file
-local filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd"
-local frameAllString = "All frames as group"
-local frameList = { frameAllString }
-for i = 1, #sprite.frames do
-  table.insert(frameList, "" .. i)
-end
-local showCompleated = false
-
-local dialog = Dialog()
-dialog:file{
-  id = "filename",
-  label = "Filename",
-  title = "Save as...",
-  save = true,
-  filename = filename,
-  filetypes = { "psd" },
-}:combobox{
-  id = "frameNum",
-  label = "Frame",
-  option = frameList[1],
-  options = frameList
-}:check{
-  id = "showCompleated",
-  label = "",
-  text = "Show dialog when succeeded",
-  selected = true
-}:button{
-  id = "ok",
-  text = "&Export",
-  focus = true
-}:button{
-  id = "cancel",
-  text="&Cancel"
-}
-dialog:show()
-
-if not dialog.data.ok then return end
-
-filename = dialog.data.filename             --[[@as string]]
----@type string | number
-local frameNum = dialog.data.frameNum       --[[@as string]]
-if frameNum ~= frameAllString then
-    frameNum = tonumber(frameNum)           --[[@as number]]
-end
-showCompleated = dialog.data.showCompleated --[[@as boolean]]
-
-if not IsInteger(frameNum) then
-  Util.failAlert("The frame number " .. frameNum .. " is not valid.")
-  return
-end
-if frameNum ~= frameAllString and (frameNum < 1 or #sprite.frames < frameNum) then
-  Util.failAlert("The frame number " .. frameNum .. " is out of range.")
-  return
-end
-
-local file = io.open(filename, "wb")
-if not file then
-  Util.failAlert("Failed to open the file to export.")
-  return
-end
-
+---@param data integer
 function PackU32BE(data)
-    return (">4"):pack(data)
+    return (">I4"):pack(data)
 end
 
+---@param data integer
+function PackI32BE(data)
+    return (">i4"):pack(data)
+end
+
+---@param data integer
 function PackU16BE(data)
-    return (">2"):pack(data)
+    return (">I2"):pack(data)
 end
 
+---@param data integer
 function PackU8(data)
     return ("B"):pack(data)
 end
@@ -230,807 +129,549 @@ function ToPascalString(str, padBase, maxLength)
     return PackU8(#str_) .. str_ .. PackU8(0):rep(padBase - 1 - #str_ % padBase)
 end
 
--- ==============================
--- File Header Section
--- ==============================
-local fileHeaderData = table.concat({
-    -- signature
-    "8BPS",
-    -- version = 1
-    PackU16BE(1),
-    -- resevered = 0
-    (">6"):pack(0),
-    -- channels = 4 (RGBA)
-    PackU16BE(4),
-    -- height
-    PackU32BE(sprite.height),
-    -- width
-    PackU32BE(sprite.width),
-    -- depth = 8
-    PackU16BE(8),
-    -- color mode = 3 (RGB)
-    PackU16BE(3),
-})
-file:write(fileHeaderData)
-
--- ==============================
--- Color Mode Data Section
--- ==============================
-local colorModeData = table.concat({
-    -- size = 0
-    PackU32BE(0)
-})
-file:write(colorModeData)
-
--- ==============================
--- Image Resources Section
--- ==============================
-local imageResourcesData = table.concat({
-    -- size = 0
-    PackU32BE(0)
-})
-file:write(imageResourcesData)
-
--- ==============================
--- Layer and Mask Information Section
--- ==============================
-
-local layerAndMaskDataBuffer = {
-    -- size TBD
-    "",
-    -- layer info: size TBD
-    "",
-    -- layer info: layer count: TBD (due to the groups),
-    "",
-}
-local lmSizeIndex = 0
-local lmLiSizeIndex = 1
-local lmLiLayerCountIndex = 2
-local layerCount = 0
-
--- layer info -> laye records
----@param layerGroup Layer[]
+---Exports sprite into file
+---@param sprite Sprite
+---@param filename string
 ---@param frameNum integer
----@return string layerRecord
----@return string imageData
----@return integer layerCount
-local function createLayerRecordAndImageData(layerGroup, frameNum)
+---@return boolean
+---@return string | nil
+function ExportToPsd(sprite, filename, frameNum)
+    local blendModeTable = {
+        [BlendMode.NORMAL]         = "norm",
+        [BlendMode.MULTIPLY]       = "mul ",
+        [BlendMode.SCREEN]         = "scrn",
+        [BlendMode.OVERLAY]        = "over",
+        [BlendMode.DARKEN]         = "dark",
+        [BlendMode.LIGHTEN]        = "lite",
+        [BlendMode.COLOR_DODGE]    = "div ",
+        [BlendMode.COLOR_BURN]     = "idiv",
+        [BlendMode.HARD_LIGHT]     = "hLit",
+        [BlendMode.SOFT_LIGHT]     = "sLit",
+        [BlendMode.DIFFERENCE]     = "diff",
+        [BlendMode.EXCLUSION]      = "smud",
+        [BlendMode.HSL_HUE]        = "hue ",
+        [BlendMode.HSL_SATURATION] = "sat ",
+        [BlendMode.HSL_COLOR]      = "colr",
+        [BlendMode.HSL_LUMINOSITY] = "lum ",
+        [BlendMode.ADDITION]       = "lddg",
+        [BlendMode.SUBTRACT]       = "fsub",
+        [BlendMode.DIVIDE]         = "fdiv",
+    }
+
+    ---Returns RGBA pixel color at the given point in the given image
+    ---@param image Image
+    ---@param x integer
+    ---@param y integer
+    ---@return integer red
+    ---@return integer green
+    ---@return integer blue
+    ---@return integer alpha
+    local function getRGBColor(image, x, y)
+        local pixelValue = image:getPixel(x, y)
+
+        if image.colorMode == ColorMode.RGB then
+            return app.pixelColor.rgbaR(pixelValue),
+                app.pixelColor.rgbaG(pixelValue),
+                app.pixelColor.rgbaB(pixelValue),
+                app.pixelColor.rgbaA(pixelValue)
+        elseif image.colorMode == ColorMode.GRAY then
+            return app.pixelColor.grayaV(pixelValue),
+                app.pixelColor.grayaV(pixelValue),
+                app.pixelColor.grayaV(pixelValue),
+                app.pixelColor.grayaA(pixelValue)
+        elseif image.colorMode == ColorMode.INDEXED then
+            if pixelValue == sprite.transparentColor then
+                return 0, 0, 0, 0
+            end
+
+            local sprite = image.cel.sprite
+            local color = sprite.palettes[1]:getColor(pixelValue)
+
+            return color.red, color.green, color.blue, color.alpha
+        end
+
+        return 0, 0, 0, 0
+    end
+
+    ---returns whether the given point is in the given bounds
+    ---@param bounds Rectangle
+    ---@param x integer
+    ---@param y integer
+    local function pointInBounds(bounds, x, y)
+        return bounds.x <= x and x < bounds.x + bounds.width and bounds.y <= y and y < bounds.y + bounds.height
+    end
+
+    local file = io.open(filename, "wb")
+    if not file then
+        return false, "Failed to open the file to export."
+    end
+
+    -- ==============================
+    -- File Header Section
+    -- ==============================
+    local fileHeaderData = table.concat({
+        "8BPS",                   -- signature
+        PackU16BE(1),             -- version = 1
+        (">I6"):pack(0),           -- resevered = 0
+        PackU16BE(4),             -- channels = 4 (RGBA)
+        PackU32BE(sprite.height), -- height
+        PackU32BE(sprite.width),  -- width
+        PackU16BE(8),             -- depth = 8
+        PackU16BE(3),             -- color mode = 3 (RGB)
+    })
+    file:write(fileHeaderData)
+
+    -- ==============================
+    -- Color Mode Data Section
+    -- ==============================
+    local colorModeData = table.concat({
+        PackU32BE(0), -- size = 0
+    })
+    file:write(colorModeData)
+
+    -- ==============================
+    -- Image Resources Section
+    -- ==============================
+    local imageResourcesData = table.concat({
+        PackU32BE(0), -- size = 0
+    })
+    file:write(imageResourcesData)
+
+    -- ==============================
+    -- Layer and Mask Information Section
+    -- ==============================
     ---@param image Image
     ---@return string
+    ---@return {r: integer, g: integer, b: integer, a: integer}
     local function createImageData(image)
-        ---@param pixelValue any
-        ---@return integer red
-        ---@return integer green
-        ---@return integer blue
-        ---@return integer alpha
-        local function getRGBColor(pixelValue)
-            if image.colorMode == ColorMode.RGB then
-                return app.pixelColor.rgbaR(pixelValue),
-                    app.pixelColor.rgbaG(pixelValue),
-                    app.pixelColor.rgbaB(pixelValue),
-                    app.pixelColor.rgbaA(pixelValue)
-            elseif image.colorMode == ColorMode.GRAY then
-                return app.pixelColor.grayaV(pixelValue),
-                    app.pixelColor.grayaV(pixelValue),
-                    app.pixelColor.grayaV(pixelValue),
-                    app.pixelColor.grayaA(pixelValue)
-            elseif image.colorMode == ColorMode.INDEXED then
-                local color = sprite.palettes[1]:getColor(pixelValue)
-                return color.red, color.green, color.blue, color.alpha * (pixelValue == 0)
+        local sizeBufferR = {} --[[ @type string[] ]]
+        local sizeBufferG = {} --[[ @type string[] ]]
+        local sizeBufferB = {} --[[ @type string[] ]]
+        local sizeBufferA = {} --[[ @type string[] ]]
+        local bufferR = {} --[[ @type string[] ]]
+        local bufferG = {} --[[ @type string[] ]]
+        local bufferB = {} --[[ @type string[] ]]
+        local bufferA = {} --[[ @type string[] ]]
+
+        for y = 0, image.height - 1 do
+            local rowBufferR = {} --[[ @type string[] ]]
+            local rowBufferG = {} --[[ @type string[] ]]
+            local rowBufferB = {} --[[ @type string[] ]]
+            local rowBufferA = {} --[[ @type string[] ]]
+
+            for x = 0, image.width - 1 do
+                local r, g, b, a = getRGBColor(image, x, y)
+                rowBufferR[#rowBufferR + 1] = PackU8(r)
+                rowBufferG[#rowBufferG + 1] = PackU8(g)
+                rowBufferB[#rowBufferB + 1] = PackU8(b)
+                rowBufferA[#rowBufferA + 1] = PackU8(a)
             end
+
+            local rowDataR = PackBits(table.concat(rowBufferR))
+            local rowDataG = PackBits(table.concat(rowBufferG))
+            local rowDataB = PackBits(table.concat(rowBufferB))
+            local rowDataA = PackBits(table.concat(rowBufferA))
+
+            if #rowDataR % 2 == 1 then
+                rowDataR = rowDataR .. "\x80"
+            end
+            if #rowDataG % 2 == 1 then
+                rowDataG = rowDataG .. "\x80"
+            end
+            if #rowDataB % 2 == 1 then
+                rowDataB = rowDataB .. "\x80"
+            end
+            if #rowDataA % 2 == 1 then
+                rowDataA = rowDataA .. "\x80"
+            end
+
+            sizeBufferR[#sizeBufferR + 1] = PackU16BE(#rowDataR)
+            sizeBufferG[#sizeBufferG + 1] = PackU16BE(#rowDataG)
+            sizeBufferB[#sizeBufferB + 1] = PackU16BE(#rowDataB)
+            sizeBufferA[#sizeBufferA + 1] = PackU16BE(#rowDataA)
+            bufferR[#bufferR + 1] = rowDataR
+            bufferG[#bufferG + 1] = rowDataG
+            bufferB[#bufferB + 1] = rowDataB
+            bufferA[#bufferA + 1] = rowDataA
         end
 
-        local buffer = { r = {}, g = {}, b = {}, a = {} }
-        for y = 0, image.width do
-            local rowBuffer = { r = {}, g = {}, b = {}, a = {} }
-            for x = 0, image.height do
-                local r, g, b, a = getRGBColor(image:getPixel(x, y))
-                rowBuffer.r[#rowBuffer.r + 1] = PackU8(r)
-                rowBuffer.g[#rowBuffer.g + 1] = PackU8(g)
-                rowBuffer.b[#rowBuffer.b + 1] = PackU8(b)
-                rowBuffer.a[#rowBuffer.a + 1] = PackU8(a)
-            end
-            buffer.r[#buffer.r + 1] = PackBits(table.concat(rowBuffer.r))
-            buffer.g[#buffer.r + 1] = PackBits(table.concat(rowBuffer.g))
-            buffer.b[#buffer.r + 1] = PackBits(table.concat(rowBuffer.b))
-            buffer.a[#buffer.r + 1] = PackBits(table.concat(rowBuffer.a))
-        end
+        local sizeDataR = table.concat(sizeBufferR)
+        local sizeDataG = table.concat(sizeBufferG)
+        local sizeDataB = table.concat(sizeBufferB)
+        local sizeDataA = table.concat(sizeBufferA)
+        local dataR = table.concat(bufferR)
+        local dataG = table.concat(bufferG)
+        local dataB = table.concat(bufferB)
+        local dataA = table.concat(bufferA)
 
-        return table.concat({
-            -- compression = 1 (RLE)
-            (">2>2>2>2"):pack(1, 1, 1, 1),
-            -- size
-            (">2>2>2>2"):pack(
-                #buffer.r + 2 * image.height + 2,
-                #buffer.g + 2 * image.height + 2,
-                #buffer.b + 2 * image.height + 2,
-                #buffer.a + 2 * image.height + 2
-            ),
-            -- data
-            table.concat(buffer)
+        local sizeR = 2 + #sizeDataR + #dataR
+        local sizeG = 2 + #sizeDataG + #dataG
+        local sizeB = 2 + #sizeDataB + #dataB
+        local sizeA = 2 + #sizeDataA + #dataA
+
+        local data = table.concat({
+            -- compression = 1(RLE), size, data
+            PackU16BE(1), sizeDataR, dataR,
+            PackU16BE(1), sizeDataG, dataG,
+            PackU16BE(1), sizeDataB, dataB,
+            PackU16BE(1), sizeDataA, dataA,
         })
+
+        return data, { r = sizeR, g = sizeG, b = sizeB, a = sizeA }
     end
 
-    local layerCount = 0
-    local dataBuffer = {}
-    for _, layer in ipairs(layerGroup) do
-        local flags = 0
-        if layer.isVisible then
-            flags = flags | 2
-        end
+    ---@param layerGroup Layer[]
+    ---@param frameNum integer
+    ---@return string layerRecord
+    ---@return string imageData
+    ---@return integer layerCount
+    local function createLayerRecordAndImageData(layerGroup, frameNum)
+        local emptyImageData = "\x00\x00\x00\x00\x00\x00\x00\x00"
+        local emptyImageDataSize = { r = 2, g = 2, b = 2, a = 2}
+        local emptyLayerName = "\x00\x00\x00\x00"
 
-        if not layer.isGroup then
-            -- a normal layer
-            local cel = layer:cel(frameNum)
-            if not cel then
-                -- an empty layer
-                local buffer = {
-                    -- top
-                    PackU32BE(0),
-                    -- left
-                    PackU32BE(0),
-                    -- botom
-                    PackU32BE(1),
-                    -- right
-                    PackU32BE(1),
-                    -- channel count
-                    PackU16BE(4),
-                    -- channel information (id, size) x4
-                    (">2>4"):pack(0, 6),
-                    (">2>4"):pack(1, 6),
-                    (">2>4"):pack(2, 6),
-                    (">2>4"):pack(0xFFFF, 6),
-                    -- blend mode signature
-                    "8BIM",
-                    -- blend mode
-                    "norm",
-                    -- opacity
-                    PackU8(255),
-                    -- clipping
-                    PackU8(0),
-                    -- flags
-                    PackU8(flags),
-                    -- filler
-                    PackU8(0),
-                    -- extra data field size: TBD
-                    "",
-                    -- layer mask: size = 0
-                    PackU32BE(0),
-                    -- blending ranges data: size = 0
-                    PackU32BE(0),
-                    -- layer name
-                    ToPascalString(layer.name, 128)
-                }
+        local layerCount = 0
+        local lrBuffer = {}
+        local idBuffer = {}
+        for _, layer in ipairs(layerGroup) do
+            local layerName = ToPascalString(layer.name, 4, 128)
+            local flags = 0
+            if not layer.isVisible then
+                flags = flags | 2
+            end
 
-                -- set extra data field size
-                buffer[16] = PackU32BE(4 + 4 + #buffer[19])
+            if not layer.isGroup then
+                -- a normal layer
+                local cel = layer:cel(frameNum)
+                layerCount = layerCount + 1
 
-                dataBuffer[#dataBuffer + 1] = table.concat(buffer)
+                if not cel then
+                    -- an empty layer
+                    lrBuffer[#lrBuffer + 1] = table.concat({
+                        PackU32BE(0), -- top
+                        PackU32BE(0), -- left
+                        PackU32BE(0), -- bottom
+                        PackU32BE(0), -- right
+                        PackU16BE(4), -- channel count
+                        -- channel information (id, size) x4
+                        (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
+                        (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
+                        (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
+                        (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
+                        "8BIM",                        -- blend mode signature
+                        "norm",                        -- blend mode
+                        PackU8(layer.opacity),         -- opacity
+                        PackU8(0),                     -- clipping
+                        PackU8(flags),                 -- flags
+                        PackU8(0),                     -- filler
+                        PackU32BE(4 + 4 + #layerName), -- extra data field size
+                        PackU32BE(0),                  -- layer mask: size = 0
+                        PackU32BE(0),                  -- blending ranges data: size = 0
+                        layerName,                     -- layer name
+                    })
+                    idBuffer[#idBuffer + 1] = emptyImageData
+                else
+                    -- a layer with content
+                    local imageData, imageDataSize = createImageData(cel.image)
+
+                    lrBuffer[#lrBuffer + 1] = table.concat({
+                        PackI32BE(cel.bounds.y),                     -- top
+                        PackI32BE(cel.bounds.x),                     -- left
+                        PackI32BE(cel.bounds.y + cel.bounds.height), -- bottom
+                        PackI32BE(cel.bounds.x + cel.bounds.width),  -- right
+                        PackU16BE(4),                                -- channel count
+                        -- channel information (id, size) x4
+                        (">I2>I4"):pack(0x0000, imageDataSize.r),
+                        (">I2>I4"):pack(0x0001, imageDataSize.g),
+                        (">I2>I4"):pack(0x0002, imageDataSize.b),
+                        (">I2>I4"):pack(0xFFFF, imageDataSize.a),
+                        "8BIM",                              -- blend mode signature
+                        blendModeTable[cel.layer.blendMode], -- blend mode
+                        PackU8(layer.opacity),               -- opacity
+                        PackU8(0),                           -- clipping
+                        PackU8(flags),                       -- flags
+                        PackU8(0),                           -- filler
+                        PackU32BE(4 + 4 + #layerName),       -- extra data field size: TBD
+                        PackU32BE(0),                        -- layer mask: size = 0
+                        PackU32BE(0),                        -- blending ranges data: size = 0
+                        layerName,                           -- layer name
+                    })
+                    idBuffer[#idBuffer + 1] = imageData
+                end
             else
-                -- a layer with content
-                local buffer = {
-                    -- top
-                    PackU32BE(cel.bounds.y),
-                    -- left
-                    PackU32BE(cel.bounds.x),
-                    -- botom
-                    PackU32BE(cel.bounds.y + cel.bounds.height),
-                    -- right
-                    PackU32BE(cel.bounds.x + cel.bounds.width),
-                    -- channel count
-                    PackU16BE(4),
+                -- a group
+                local closerName = ToPascalString("</Layer " .. layer.name .. " >", 4, 128)
+
+                -- group closer
+                lrBuffer[#lrBuffer + 1] = table.concat({
+                    PackU32BE(0), -- top
+                    PackU32BE(0), -- left
+                    PackU32BE(0), -- bottom
+                    PackU32BE(0), -- right
+                    PackU16BE(4), -- channel count
                     -- channel information (id, size) x4
-                    (">2>4"):pack(0, 6),
-                    (">2>4"):pack(1, 6),
-                    (">2>4"):pack(2, 6),
-                    (">2>4"):pack(0xFFFF, 6),
-                    -- blend mode signature
-                    "8BIM",
-                    -- blend mode
-                    "norm",
-                    -- opacity
-                    PackU8(255),
-                    -- clipping
-                    PackU8(0),
-                    -- flags
-                    PackU8(flags),
-                    -- filler
-                    PackU8(0),
-                    -- extra data field size: TBD
-                    "",
-                    -- layer mask: size = 0
-                    PackU32BE(0),
-                    -- blending ranges data: size = 0
-                    PackU32BE(0),
-                    -- layer name
-                    ToPascalString(layer.name, 128)
-                }
+                    (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
+                    (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
+                    (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
+                    (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
+                    "8BIM",                                  -- blend mode signature
+                    "norm",                                  -- blend mode
+                    PackU8(255),                             -- opacity
+                    PackU8(0),                               -- clipping
+                    PackU8(flags),                           -- flags
+                    PackU8(0),                               -- filler
+                    PackU32BE(4 + 4 + #closerName + 16),     -- extra data field size
+                    PackU32BE(0),                            -- layer mask: size = 0
+                    PackU32BE(0),                            -- blending ranges data: size = 0
+                    closerName,                              -- layer name
+                    "8BIM",                                  -- additional layer information: signature
+                    "lsct",                                  -- additional layer information: key = lsct (section devider)
+                    PackU32BE(4),                            -- additional layer information: length = 4
+                    PackU32BE(3),                            -- additional layer information: data = 3 (bounding section devider)
+                })
+                idBuffer[#idBuffer + 1] = emptyImageData
 
-                -- set extra data field size
-                buffer[16] = PackU32BE(4 + 4 + #buffer[19])
+                -- encode group recursively
+                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum)
+                lrBuffer[#lrBuffer + 1] = childLrData
+                idBuffer[#idBuffer + 1] = childIdData
 
-                dataBuffer[#dataBuffer + 1] = table.concat(buffer)
+                layerCount = layerCount + 2 + childLayerCount
+
+                -- group opener
+                local additionalInfoData = 1
+                if not layer.isExpanded then
+                    additionalInfoData = 2
+                end
+
+                lrBuffer[#lrBuffer + 1] = table.concat({
+                    PackU32BE(0), -- top
+                    PackU32BE(0), -- left
+                    PackU32BE(0), -- bottom
+                    PackU32BE(0), -- right
+                    PackU16BE(4), -- channel count
+                    -- channel information (id, size) x4
+                    (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
+                    (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
+                    (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
+                    (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
+                    "8BIM",                                  -- blend mode signature
+                    "norm",                                  -- blend mode
+                    PackU8(255),                             -- opacity
+                    PackU8(0),                               -- clipping
+                    PackU8(flags),                           -- flags
+                    PackU8(0),                               -- filler
+                    PackU32BE(4 + 4 + #layerName + 16),      -- extra data field size
+                    PackU32BE(0),                            -- layer mask: size = 0
+                    PackU32BE(0),                            -- blending ranges data: size = 0
+                    layerName,                               -- layer name
+                    "8BIM",                                  -- additional layer information: signature
+                    "lsct",                                  -- additional layer information: key = lsct (section devider)
+                    PackU32BE(4),                            -- additional layer information: length = 4
+                    PackU32BE(additionalInfoData),           -- additional layer information: data = 3 (bounding section devider)
+                })
+                idBuffer[#idBuffer + 1] = emptyImageData
             end
-        else
-            -- a group
+        end
+
+        return table.concat(lrBuffer), table.concat(idBuffer), layerCount
+    end
+
+    local lrData, idData, layerCount = createLayerRecordAndImageData(sprite.layers, frameNum)
+    local padLayerAndMask = false
+    local layerInfoSize = 2 + #lrData + #idData
+    if layerInfoSize % 2 == 1 then
+        padLayerAndMask = true
+        layerInfoSize = layerInfoSize + 1
+    end
+    local layerAndMaskData = table.concat({
+        PackU32BE(4 + layerInfoSize), -- size
+        PackU32BE(layerInfoSize),     -- layer info: size TBD
+        PackU16BE(layerCount),        -- layer info: layer count
+        lrData,                       -- layer records
+        idData,                       -- channel image data
+    })
+    file:write(layerAndMaskData)
+    if padLayerAndMask then
+        file:write(PackU8(0))
+    end
+
+    -- ==============================
+    -- Image Data Section
+    -- ==============================
+    local tempSprite = Sprite(sprite)
+    for _, layer in ipairs(tempSprite.layers) do
+        if not layer.isVisible then
+            tempSprite:deleteLayer(layer)
         end
     end
-end
+    tempSprite:flatten()
+    local tempCel = tempSprite.cels[1]
+    local tempImage = tempCel.image
 
-createLayerRecordAndImageData(sprite.layers, 1)
+    local imageDataSizeBufferR = {} --[[ @type string[] ]]
+    local imageDataSizeBufferG = {} --[[ @type string[] ]]
+    local imageDataSizeBufferB = {} --[[ @type string[] ]]
+    local imageDataSizeBufferA = {} --[[ @type string[] ]]
+    local imageDataBufferR = {} --[[ @type string[] ]]
+    local imageDataBufferG = {} --[[ @type string[] ]]
+    local imageDataBufferB = {} --[[ @type string[] ]]
+    local imageDataBufferA = {} --[[ @type string[] ]]
+    for y = 0, tempSprite.height - 1 do
+        local rowBufferR = {} --[[ @type string[] ]]
+        local rowBufferG = {} --[[ @type string[] ]]
+        local rowBufferB = {} --[[ @type string[] ]]
+        local rowBufferA = {} --[[ @type string[] ]]
 
--- Layer and Mask Information
-local lm = {
-  size = 0,
-  layer = {
-    size = 2,   -- size of layer count
-    count = 0,
-    records = {},
-    image = {}
-  },
-  mask = {},
-  addition = {}
-}
--- Image data
-local id = {
-  compression = 1,
-  r = {
-    size = {},
-    data = {}
-  },
-  g = {
-    size = {},
-    data = {}
-  },
-  b = {
-    size = {},
-    data = {}
-  },
-  a = {
-    size = {},
-    data = {}
-  }
-}
-
-
--- called recursively to explore layer tree
-function setLayerInfo(group)
-  for i, layer in ipairs(group) do
-
-    local layerName = layer.name:sub(1 ,127)
-    if layer.isGroup then
-      -- close folder
-      local lr = {
-        top = 0,
-        left = 1,
-        bottom = 1,
-        right = 2,
-        channelCount = 4,
-        channels = {
-          {id = 0, size = 6},
-          {id = 1, size = 6},
-          {id = 2, size = 6},
-          {id = 0xFFFF, size = 6}
-        },
-        blendSig = "8BIM",
-        blendMode = "norm",
-        opacity = 255,
-        clipping = 0,
-        flags = 0,
-        filler = 0,
-        exFieldSize = 0,
-        mask = {
-          size = 0
-        },
-        blendingRange = {
-          size = 0
-        },
-        name = {
-          length = 0,
-          name = "",
-          padding = 3
-        },
-        adjustment = {
-          {
-            signature = "8BIM",
-            key = "lsct",
-            size = 4,
-            data = 3
-          }
-        }
-      }
-
-      -- mask: 4 + blendingRange: 4 + name: 4 + adjustment: (4 + 4 + 4 + 4)
-      lr.exFieldSize = 28
-      -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
-      --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
-      --   imageData: 24
-      lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + 24
-      lm.layer.count = lm.layer.count + 1
-      table.insert(lm.layer.records, lr)
-      table.insert(lm.layer.image, {
-        r = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        g = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        b = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        a = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-      })
-
-      -- explore group
-      setLayerInfo(layer.layers)
-
-      -- open folder
-      local lr2 = {
-        top = 0,
-        left = 0,
-        bottom = 1,
-        right = 1,
-        channelCount = 4,
-        channels = {
-          {id = 0, size = 6},
-          {id = 1, size = 6},
-          {id = 2, size = 6},
-          {id = 0xFFFF, size = 6}
-        },
-        blendSig = "8BIM",
-        blendMode = "pass",
-        opacity = 255,
-        clipping = 0,
-        flags = 0,
-        filler = 0,
-        exFieldSize = 0,
-        mask = {
-          size = 0
-        },
-        blendingRange = {
-          size = 0
-        },
-        name = {
-          length = #layerName,
-          name = layerName,
-          padding = 3 - #layerName % 4 -- (4 - (nameLength + 1 + 16)% 4)% 4
-        },
-        adjustment = {
-          {
-            signature = "8BIM",
-            key = "lsct",
-            size = 4,
-            data = 1
-          }
-        }
-      }
-
-      if not layer.isExpanded then
-        -- open group
-        lr2.adjustment[1].data = 2
-      end
-      if not layer.isVisible then
-        -- visualize
-        lr2.flags = lr2.flags | 2
-      end
-      -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: (4 + 4 + 4 + 4)
-      lr2.exFieldSize = 25 + lr2.name.length + lr2.name.padding
-      -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
-      --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
-      --   imageData: 24
-      lm.layer.size = lm.layer.size + 58 + lr2.exFieldSize + 24
-      lm.layer.count = lm.layer.count + 1
-      table.insert(lm.layer.records, lr2)
-      table.insert(lm.layer.image, {
-        r = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        g = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        b = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-        a = {
-          compression = 1,
-          size = { 2 },
-          data = {{ 0, 0 }}
-        },
-      })
-    else
-      local cel = layer:cel(frameNum)
-      if cel then
-        -- not a empty layer
-        local image = cel.image
-        -- create image datas
-        local imageData = {
-          r = {
-            compression = 1,
-            size = {},
-            data = {}
-          },
-          g = {
-            compression = 1,
-            size = {},
-            data = {}
-          },
-          b = {
-            compression = 1,
-            size = {},
-            data = {}
-          },
-          a = {
-            compression = 1,
-            size = {},
-            data = {}
-          }
-        }
-        for y = 0, cel.bounds.height-1 do
-          local row = {
-            r = {},
-            g = {},
-            b = {},
-            a = {}
-          }
-          for x = 0, cel.bounds.width-1 do
-            local color = { r = 0, g = 0, b = 0, a = 0 }
-            local pixel = image:getPixel(x, y)
-            if image.colorModeData == ColorMode.RGB then
-              color.r = app.pixelColor.rgbaR(pixel)
-              color.g = app.pixelColor.rgbaG(pixel)
-              color.b = app.pixelColor.rgbaB(pixel)
-              color.a = app.pixelColor.rgbaA(pixel)
-            elseif image.colorModeData == ColorMode.GRAY then
-              color.r = app.pixelColor.grayaV(pixel)
-              color.g = app.pixelColor.grayaV(pixel)
-              color.b = app.pixelColor.grayaV(pixel)
-              color.a = app.pixelColor.grayaA(pixel)
-            elseif image.colorModeData == ColorMode.INDEXED then
-              local c = sprite.palettes[1]:getColor(pixel)
-              color.r = c.red
-              color.g = c.green
-              color.b = c.blue
-              if pixel == 0 then color.a = 0 else color.a = c.alpha end
+        for x = 0, tempSprite.width - 1 do
+            if pointInBounds(tempCel.bounds, x, y) then
+                local r, g, b, a = getRGBColor(tempImage, x, y)
+                rowBufferR[#rowBufferR + 1] = PackU8(r)
+                rowBufferG[#rowBufferG + 1] = PackU8(g)
+                rowBufferB[#rowBufferB + 1] = PackU8(b)
+                rowBufferA[#rowBufferA + 1] = PackU8(a)
+            else
+                rowBufferR[#rowBufferR + 1] = "\x00"
+                rowBufferG[#rowBufferG + 1] = "\x00"
+                rowBufferB[#rowBufferB + 1] = "\x00"
+                rowBufferA[#rowBufferA + 1] = "\x00"
             end
-            table.insert(row.r, color.r)
-            table.insert(row.g, color.g)
-            table.insert(row.b, color.b)
-            table.insert(row.a, color.a)
-          end
-          row.r = packBits(row.r)
-          row.g = packBits(row.g)
-          row.b = packBits(row.b)
-          row.a = packBits(row.a)
-          table.insert(imageData.r.data, row.r)
-          table.insert(imageData.g.data, row.g)
-          table.insert(imageData.b.data, row.b)
-          table.insert(imageData.a.data, row.a)
-          table.insert(imageData.r.size, #row.r)
-          table.insert(imageData.g.size, #row.g)
-          table.insert(imageData.b.size, #row.b)
-          table.insert(imageData.a.size, #row.a)
         end
 
-        local imageSize = {
-          r = sum(imageData.r.size) + #imageData.r.size * 2 + 2,
-          g = sum(imageData.g.size) + #imageData.g.size * 2 + 2,
-          b = sum(imageData.b.size) + #imageData.b.size * 2 + 2,
-          a = sum(imageData.a.size) + #imageData.a.size * 2 + 2
-        }
+        local rowDataR = PackBits(table.concat(rowBufferR))
+        local rowDataG = PackBits(table.concat(rowBufferG))
+        local rowDataB = PackBits(table.concat(rowBufferB))
+        local rowDataA = PackBits(table.concat(rowBufferA))
 
-        local lr = {
-          top = cel.bounds.y,
-          left = cel.bounds.x,
-          bottom = cel.bounds.y + cel.bounds.height,
-          right = cel.bounds.x + cel.bounds.width,
-          channelCount = 4,
-          channels = {
-            {id = 0, size = imageSize.r},
-            {id = 1, size = imageSize.g},
-            {id = 2, size = imageSize.b},
-            {id = 0xFFFF, size = imageSize.a}
-          },
-          blendSig = "8BIM",
-          blendMode = blendModeTable[cel.layer.blendMode],
-          opacity = cel.layer.opacity,
-          clipping = 0,
-          flags = 0,
-          filler = 0,
-          exFieldSize = 0,
-          mask = {
-            size = 0
-          },
-          blendingRange = {
-            size = 0
-          },
-          name = {
-            length = #layerName,
-            name = layerName,
-            padding = 3 - #layerName % 4
-          },
-          adjustment = {
-          }
-        }
-
-        if not layer.isVisible then
-          -- visualize
-          lr.flags = lr.flags | 2
+        if #rowDataR % 2 == 1 then
+            rowDataR = rowDataR .. "\x80"
         end
-        -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: 0
-        lr.exFieldSize = 9 + lr.name.length + lr.name.padding
-        -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
-        --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize]
-        --   imageData: ([channels[1].size] + [channels[2].size] + ... +[channels[4].size])
-        lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + lr.channels[1].size + lr.channels[2].size + lr.channels[3].size + lr.channels[4].size
-        lm.layer.count = lm.layer.count + 1
-        table.insert(lm.layer.records, lr)
-        table.insert(lm.layer.image, imageData)
-      else
-        -- insert empty layer
-        local lr = {
-          top = 0,
-          left = 0,
-          bottom = 1,
-          right = 1,
-          channelCount = 4,
-          channels = {
-            {id = 0, size = 6},
-            {id = 1, size = 6},
-            {id = 2, size = 6},
-            {id = 0xFFFF, size = 6}
-          },
-          blendSig = "8BIM",
-          blendMode = "norm",
-          opacity = 255,
-          clipping = 0,
-          flags = 0,
-          filler = 0,
-          exFieldSize = 0,
-          mask = {
-            size = 0
-          },
-          blendingRange = {
-            size = 0
-          },
-          name = {
-            length = #layerName,
-            name = layerName,
-            padding = 3 - #layerName % 4
-          },
-          adjustment = {
-          }
-        }
-
-        if not layer.isVisible then
-          -- visualize
-          lr.flags = lr.flags | 2
+        if #rowDataG % 2 == 1 then
+            rowDataG = rowDataG .. "\x80"
         end
-        -- mask: 4 + blendingRange: 4 + name: (1 + [length] + [padding]) + adjustment: 0
-        lr.exFieldSize = 9 + lr.name.length + lr.name.padding
-        -- bound: 4x4 + channelCount:2 + channels: 4*6 + blendSig: 4 + blendMode: 4 +
-        --   opacity: 1 + clipping: 1 + flags: 1 + filler: 1 + exFieldSize: 4 + [exFieldSize] +
-        --   imageData: 24
-        lm.layer.size = lm.layer.size + 58 + lr.exFieldSize + 24
-        lm.layer.count = lm.layer.count + 1
-        table.insert(lm.layer.records, lr)
-        table.insert(lm.layer.image, {
-          r = {
-            compression = 1,
-            size = { 2 },
-            data = {{ 0, 0 }}
-          },
-          g = {
-            compression = 1,
-            size = { 2 },
-            data = {{ 0, 0 }}
-          },
-          b = {
-            compression = 1,
-            size = { 2 },
-            data = {{ 0, 0 }}
-          },
-          a = {
-            compression = 1,
-            size = { 2 },
-            data = {{ 0, 0 }}
-          },
-        })
-      end
+        if #rowDataB % 2 == 1 then
+            rowDataB = rowDataB .. "\x80"
+        end
+        if #rowDataA % 2 == 1 then
+            rowDataA = rowDataA .. "\x80"
+        end
+
+        imageDataSizeBufferR[#imageDataSizeBufferR + 1] = PackU16BE(#rowDataR)
+        imageDataSizeBufferG[#imageDataSizeBufferG + 1] = PackU16BE(#rowDataG)
+        imageDataSizeBufferB[#imageDataSizeBufferB + 1] = PackU16BE(#rowDataB)
+        imageDataSizeBufferA[#imageDataSizeBufferA + 1] = PackU16BE(#rowDataA)
+        imageDataBufferR[#imageDataBufferR + 1] = rowDataR
+        imageDataBufferG[#imageDataBufferG + 1] = rowDataG
+        imageDataBufferB[#imageDataBufferB + 1] = rowDataB
+        imageDataBufferA[#imageDataBufferA + 1] = rowDataA
     end
-  end
-end
-setLayerInfo(sprite.layers)
 
--- [layer info size] + mask:4 + addition: 0
-lm.size = lm.layer.size + 4
+    tempSprite:close()
 
--- image data
-local fsprite = Sprite(sprite)
-local fcel = sprite.cels[1]
-local fimage = fcel.image
-fsprite:flatten()
+    local imageSizeDataR = table.concat(imageDataSizeBufferR)
+    local imageSizeDataG = table.concat(imageDataSizeBufferG)
+    local imageSizeDataB = table.concat(imageDataSizeBufferB)
+    local imageSizeDataA = table.concat(imageDataSizeBufferA)
+    local imageDataR = table.concat(imageDataBufferR)
+    local imageDataG = table.concat(imageDataBufferG)
+    local imageDataB = table.concat(imageDataBufferB)
+    local imageDataA = table.concat(imageDataBufferA)
 
-for y = 0, fsprite.height-1 do
-  local row = {
-    r = {},
-    g = {},
-    b = {},
-    a = {}
-  }
-  for x = 0, fsprite.width-1 do
+    local imageData = table.concat({
+        -- compression = 1 (RLE)
+        PackU16BE(1),
+        -- size
+        imageSizeDataR,
+        imageSizeDataG,
+        imageSizeDataB,
+        imageSizeDataA,
+        -- data
+        imageDataR,
+        imageDataG,
+        imageDataB,
+        imageDataA,
+    })
+    file:write(imageData)
 
-    local color = { r = 0, g = 0, b = 0, a = 0 }
-    if fcel.bounds.x <= x and x < fcel.bounds.x + fcel.bounds.width and fcel.bounds.y <= y and y < fcel.bounds.y + fcel.bounds.height then
-      local pixel = fimage:getPixel(x - fcel.bounds.x, y - fcel.bounds.y)
-      if fimage.colorModeData == ColorMode.RGB then
-        color.r = app.pixelColor.rgbaR(pixel)
-        color.g = app.pixelColor.rgbaG(pixel)
-        color.b = app.pixelColor.rgbaB(pixel)
-        color.a = app.pixelColor.rgbaA(pixel)
-      elseif fimage.colorModeData == ColorMode.GRAY then
-        color.r = app.pixelColor.grayaV(pixel)
-        color.g = app.pixelColor.grayaV(pixel)
-        color.b = app.pixelColor.grayaV(pixel)
-        color.a = app.pixelColor.grayaA(pixel)
-      elseif fimage.colorModeData == ColorMode.INDEXED then
-        local c = fsprite.palettes[1]:getColor(pixel)
-        color.r = c.red
-        color.g = c.green
-        color.b = c.blue
-        if pixel == 0 then color.a = 0 else color.a = c.alpha end
-      end
-    end
-    table.insert(row.r, color.r)
-    table.insert(row.g, color.g)
-    table.insert(row.b, color.b)
-    table.insert(row.a, color.a)
-  end
-  row.r = packBits(row.r)
-  row.g = packBits(row.g)
-  row.b = packBits(row.b)
-  row.a = packBits(row.a)
-  table.insert(id.r.data, row.r)
-  table.insert(id.g.data, row.g)
-  table.insert(id.b.data, row.b)
-  table.insert(id.a.data, row.a)
-  table.insert(id.r.size, #row.r)
-  table.insert(id.g.size, #row.g)
-  table.insert(id.b.size, #row.b)
-  table.insert(id.a.size, #row.a)
-end
-fsprite:close()
-
-
--- export to file
--- File Header
-
-file:write(fh.signature)
-write(file, 2, fh.version)
-write(file, 6, fh.reserved)
-write(file, 2, fh.channels)
-write(file, 4, fh.height)
-write(file, 4, fh.width)
-write(file, 2, fh.depth)
-write(file, 2, fh.colorMode)
-
--- Color Mode Data
-write(file, 4, cm.size)
-
--- Image Resources
-write(file, 4, ir.size)
-
--- Layer and Mask Information
-write(file, 4, lm.size)
-write(file, 4, lm.layer.size)
-write(file, 2, lm.layer.count)
-for i, record in ipairs(lm.layer.records) do
-
-  write(file, 4, record.top)
-  write(file, 4, record.left)
-  write(file, 4, record.bottom)
-  write(file, 4, record.right)
-  write(file, 2, record.channelCount)
-  for i, channel in ipairs(record.channels) do
-    write(file, 2, channel.id)
-    write(file, 4, channel.size)
-  end
-  file:write(record.blendSig)
-  file:write(record.blendMode)
-  write(file, 1, record.opacity)
-  write(file, 1, record.clipping)
-  write(file, 1, record.flags)
-  write(file, 1, record.filler)
-  write(file, 4, record.exFieldSize)
-  write(file, 4, record.mask.size)
-  write(file, 4, record.blendingRange.size)
-  write(file, 1, record.name.length)
-  writeStr(file, record.name.name)
-  write(file, record.name.padding, 0)
-  for i, d in ipairs(record.adjustment) do
-    file:write(d.signature)
-    file:write(d.key)
-    write(file, 4, d.size)
-    write(file, d.size, d.data)
-  end
+    return true
 end
 
-function exportImageData(file, data)
-  write(file, 2, data.compression)
-  for i, s in ipairs(data.size) do
-    write(file, 2, s)
-  end
-  for i, row in ipairs(data.data) do
-    for i, d in ipairs(row) do
-      write(file, 1, d)
-    end
-  end
-end
-for i, data in ipairs(lm.layer.image) do
+-- if app.apiVersion < 1 then
+--     Util.failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
+--     return
+-- end
+--
+-- local sprite = app.activeSprite
+-- if not sprite then
+--     Util.failAlert("No sprite selected.")
+--     return
+-- end
 
-  exportImageData(file, data.r)
-  exportImageData(file, data.g)
-  exportImageData(file, data.b)
-  exportImageData(file, data.a)
+-- -- show dialog to select output file
+-- local filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd"
+-- local frameAllString = "All frames as group"
+-- local frameList = { frameAllString }
+-- for i = 1, #sprite.frames do
+--   table.insert(frameList, "" .. i)
+-- end
+-- local showCompleated = false
+--
+-- local dialog = Dialog()
+-- dialog:file{
+--   id = "filename",
+--   label = "Filename",
+--   title = "Save as...",
+--   save = true,
+--   filename = filename,
+--   filetypes = { "psd" },
+-- }:combobox{
+--   id = "frameNum",
+--   label = "Frame",
+--   option = frameList[1],
+--   options = frameList
+-- }:check{
+--   id = "showCompleated",
+--   label = "",
+--   text = "Show dialog when succeeded",
+--   selected = true
+-- }:button{
+--   id = "ok",
+--   text = "&Export",
+--   focus = true
+-- }:button{
+--   id = "cancel",
+--   text="&Cancel"
+-- }
+-- dialog:show()
+--
+-- if not dialog.data.ok then return end
+--
+-- filename = dialog.data.filename             --[[@as string]]
+-- ---@type string | number
+-- local frameNum = dialog.data.frameNum       --[[@as string]]
+-- if frameNum ~= frameAllString then
+--     frameNum = tonumber(frameNum)           --[[@as number]]
+-- end
+-- showCompleated = dialog.data.showCompleated --[[@as boolean]]
+--
+-- if not IsInteger(frameNum) then
+--   Util.failAlert("The frame number " .. frameNum .. " is not valid.")
+--   return
+-- end
+-- if frameNum ~= frameAllString and (frameNum < 1 or #sprite.frames < frameNum) then
+--   Util.failAlert("The frame number " .. frameNum .. " is out of range.")
+--   return
+-- end
+
+local succeeded, message = ExportToPsd(app.activeSprite, app.activeSprite.filename .. ".psd", 1)
+if not succeeded then
+    print(message)
 end
 
---image data section
-
-write(file, 2, id.compression)
-for i, s in ipairs(id.r.size) do
-  write(file, 2, s)
-end
-for i, s in ipairs(id.g.size) do
-  write(file, 2, s)
-end
-for i, s in ipairs(id.b.size) do
-  write(file, 2, s)
-end
-for i, s in ipairs(id.a.size) do
-  write(file, 2, s)
-end
-for i, row in ipairs(id.r.data) do
-  for i, d in ipairs(row) do
-    write(file, 1, d)
-  end
-end
-for i, row in ipairs(id.g.data) do
-  for i, d in ipairs(row) do
-    write(file, 1, d)
-  end
-end
-for i, row in ipairs(id.b.data) do
-  for i, d in ipairs(row) do
-    write(file, 1, d)
-  end
-end
-for i, row in ipairs(id.a.data) do
-  for i, d in ipairs(row) do
-    write(file, 1, d)
-  end
-end
-
-file:close()
-
-if showCompleated then
-  local result = app.alert{
-    title = "Export Succeeded",
-    text = "PSD successfully exported as " .. filename,
-    buttons = "OK"
-  }
-end
+-- if showCompleated then
+--   local result = app.alert{
+--     title = "Export Succeeded",
+--     text = "PSD successfully exported as " .. filename,
+--     buttons = "OK"
+--   }
+-- end

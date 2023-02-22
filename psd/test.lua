@@ -90,7 +90,7 @@ local function test(title, func)
         io.stdout:write("\x1b[32msuccess\x1b[0m\n")
     else
         io.stdout:write("\x1b[31mfail\x1b[0m\n")
-        print(message)
+        debug.traceback(message)
     end
 end
 
