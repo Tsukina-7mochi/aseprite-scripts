@@ -2,7 +2,7 @@
 ------------------------------------------------------------
 
 ScriptInfo = {
-    version = Version("1.3.0-alpha"),
+    version = Version("1.3.0-alpha.1"),
     remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
 }
 
@@ -202,6 +202,10 @@ function ExportToPsd(sprite, filename, frameNum)
                 app.pixelColor.grayaA(pixelValue)
         elseif image.colorMode == ColorMode.INDEXED then
             if pixelValue == sprite.transparentColor then
+                return 0, 0, 0, 0
+            end
+            if pixelValue > 0xFF then
+                -- some unusual value
                 return 0, 0, 0, 0
             end
 
