@@ -20,10 +20,13 @@
 
 ## Download
 
+[Newest](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/dev/psd/Export%20as%20psd.lua)
 [Latest](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
 ## Update Log
 
+-1.3.0
+  - Implement animated psd export
 - 1.2.1
   - Enriched User Interface.
 - 1.2.0
