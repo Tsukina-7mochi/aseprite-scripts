@@ -119,6 +119,10 @@ function PackU8(data)
     return ("B"):pack(data)
 end
 
+---@param str string
+---@param padBase integer
+---@param maxLength integer
+---@return string
 function ToPascalString(str, padBase, maxLength)
     local str_ = ""
     if type(maxLength) == "number" then
@@ -129,10 +133,27 @@ function ToPascalString(str, padBase, maxLength)
     return PackU8(#str_) .. str_ .. PackU8(0):rep(padBase - 1 - #str_ % padBase)
 end
 
+---@param begin integer
+---@param end_ integer IS included
+---@param step integer | nil default=1
+---@return integer[]
+function RangeList(begin, end_, step)
+    if step == nil then
+        step = 1
+    end
+
+    local list = {}
+    for i = begin, end_, step do
+        list[#list + 1] = i
+    end
+
+    return list
+end
+
 ---Exports sprite into file
 ---@param sprite Sprite
 ---@param filename string
----@param frameNum integer | string
+---@param frameNum integer | integer[]
 ---@return boolean
 ---@return string | nil
 function ExportToPsd(sprite, filename, frameNum)
@@ -503,19 +524,15 @@ function ExportToPsd(sprite, filename, frameNum)
         idBuffer[#idBuffer + 1] = idData
         layerCount = layerCount + layerCount_
     else
-        if frameNum == "anim:all" then
-            for index = 1, #sprite.frames do
-                local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, index, {
-                    name = "Frame " .. index,
-                    isVisible = (index == 1),
-                    isExpanded = false
-                })
-                lrBuffer[#lrBuffer + 1] = lrData
-                idBuffer[#idBuffer + 1] = idData
-                layerCount = layerCount + layerCount_
-            end
-        else
-            error("Internal error: the frame specifier \"" .. frameNum .. "\" is invalid.")
+        for _, index in ipairs(frameNum --[[ @as integer[] ]]) do
+            local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, index, {
+                name = "Frame " .. index,
+                isVisible = (index == 1),
+                isExpanded = false
+            })
+            lrBuffer[#lrBuffer + 1] = lrData
+            idBuffer[#idBuffer + 1] = idData
+            layerCount = layerCount + layerCount_
         end
     end
     local lrData = table.concat(lrBuffer)
@@ -638,82 +655,193 @@ function ExportToPsd(sprite, filename, frameNum)
     return true
 end
 
--- if app.apiVersion < 1 then
---     Util.failAlert("This script requires Aseprite v1.2.10-beta3 or above.")
---     return
--- end
---
--- local sprite = app.activeSprite
--- if not sprite then
---     Util.failAlert("No sprite selected.")
---     return
--- end
+-- ==============================
+-- Entry
+-- ==============================
 
--- -- show dialog to select output file
--- local filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd"
--- local frameAllString = "All frames as group"
--- local frameList = { frameAllString }
--- for i = 1, #sprite.frames do
---   table.insert(frameList, "" .. i)
--- end
--- local showCompleated = false
---
--- local dialog = Dialog()
--- dialog:file{
---   id = "filename",
---   label = "Filename",
---   title = "Save as...",
---   save = true,
---   filename = filename,
---   filetypes = { "psd" },
--- }:combobox{
---   id = "frameNum",
---   label = "Frame",
---   option = frameList[1],
---   options = frameList
--- }:check{
---   id = "showCompleated",
---   label = "",
---   text = "Show dialog when succeeded",
---   selected = true
--- }:button{
---   id = "ok",
---   text = "&Export",
---   focus = true
--- }:button{
---   id = "cancel",
---   text="&Cancel"
--- }
--- dialog:show()
---
--- if not dialog.data.ok then return end
---
--- filename = dialog.data.filename             --[[@as string]]
--- ---@type string | number
--- local frameNum = dialog.data.frameNum       --[[@as string]]
--- if frameNum ~= frameAllString then
---     frameNum = tonumber(frameNum)           --[[@as number]]
--- end
--- showCompleated = dialog.data.showCompleated --[[@as boolean]]
---
--- if not IsInteger(frameNum) then
---   Util.failAlert("The frame number " .. frameNum .. " is not valid.")
---   return
--- end
--- if frameNum ~= frameAllString and (frameNum < 1 or #sprite.frames < frameNum) then
---   Util.failAlert("The frame number " .. frameNum .. " is out of range.")
---   return
--- end
+if app.apiVersion < 1 then
+    if app.isUIAvailable then
+        app.alert({
+            title = "Export Failed",
+            text = "This script requires Aseprite v1.2.10-beta3 or above.",
+            buttons = "OK"
+        })
+    else
+        io.stdout:write("Export failed: this script requires Aseprite v1.2.10-beta3 or above.")
+    end
 
-local succeeded, message = ExportToPsd(app.activeSprite, app.activeSprite.filename .. ".psd", "anim:all")
-if not succeeded then
-    print(message)
+    return
 end
 
--- if showCompleated then
---   local result = app.alert{
---     title = "Export Succeeded",
---     text = "PSD successfully exported as " .. filename,
---     buttons = "OK"
---   }
--- end
+local sprite = app.activeSprite
+if not sprite then
+    if app.isUIAvailable then
+        app.alert({
+            title = "Export Failed",
+            text = "No sprite selected.",
+            buttons = "OK"
+        })
+    else
+        io.stdout:write("Export failed: No sprite to export.")
+    end
+
+    return
+end
+
+local function getOptionsFromDialog()
+    ---@type string[]
+    local frameList = {}
+    ---@type {[string]: integer | integer[]}
+    local frameMap = {}
+    if #sprite.frames > 1 then
+        table.insert(frameList, "All")
+        frameMap["All"] = RangeList(1, #sprite.frames)
+
+        for _, tag in ipairs(sprite.tags) do
+            table.insert(frameList, "Tag: " .. tag.name)
+            frameMap["Tag: " .. tag.name] = RangeList(tag.fromFrame.frameNumber, tag.toFrame.frameNumber)
+        end
+    end
+    for i = 1, #sprite.frames do
+        table.insert(frameList, "Frame: " .. i)
+        frameMap["Frame: " .. i] = i
+    end
+
+    local dialog = Dialog()
+    dialog:file {
+        id = "filename",
+        label = "Filename",
+        title = "Save as...",
+        save = true,
+        filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd",
+        filetypes = { "psd" },
+    }:combobox {
+        id = "frame",
+        label = "Frame",
+        option = frameList[1],
+        options = frameList,
+    }:check {
+        id = "showCompleated",
+        label = "",
+        text = "Show dialog when succeeded",
+        selected = true
+    }:button {
+        id = "ok",
+        text = "&Export",
+        focus = true
+    }:button {
+        id = "cancel",
+        text = "&Cancel"
+    }:label {
+        text = "version " .. tostring(ScriptInfo.version)
+    }
+    dialog:show()
+
+    local filename = dialog.data.filename --[[ @as string ]]
+    local frame = dialog.data.frame --[[ @as string ]]
+    local showCompleated = dialog.data.showCompleated --[[ @as boolean ]]
+    local proceed = dialog.data.ok --[[ @as boolean ]]
+
+    local frameIndex = frameMap[frame]
+    if frameIndex == nil then
+        error("Internal error: " .. frame .. "is not in frame map")
+    end
+
+    return filename, frameIndex, showCompleated, proceed
+end
+
+local function getOptionsFromCLIArgument()
+    ---@type string | nil
+    local filename = nil
+    ---@type integer | integer[] | nil
+    local frameIndex = nil
+
+    for key, value in pairs(app.params) do
+        key = key:lower()
+
+        if key == "filename" or key == "out" or key == "o" then
+            filename = value
+        elseif key == "frame" or key == "f" then
+            if IsInteger(tonumber(value)) == "number" then
+                frameIndex = tonumber(value) --[[ @as integer ]]
+            elseif key == "all" then
+                frameIndex = RangeList(1, #sprite.frames)
+            elseif key:sub(1, 4) == "tag:" then
+                local tagName = key:sub(5)
+                for _, tag in ipairs(sprite.tags) do
+                    if tag.name == tagName then
+                        frameIndex = RangeList(tag.fromFrame.frameNumber, tag.toFrame.frameNumber)
+                        break
+                    end
+                end
+            else
+                frameIndex = {}
+                for w in string.gmatch(value, "%d+") do
+                    frameIndex[#frameIndex + 1] = tonumber(w)
+                end
+            end
+        else
+            io.stdout:write("Warning: " .. key .. "is not valid option")
+        end
+    end
+
+    local proceed = true
+
+    if filename == nil then
+        proceed= false
+        filename = ""
+        io.stdout:write("Export failed: output filename is required.")
+    elseif frameIndex == nil then
+        proceed = false
+        frameIndex = -1
+        io.stdout:write("Export failed: target frame index is required.")
+    end
+
+    return filename --[[ @as string ]], frameIndex --[[ @as integer | integer[] ]], true, proceed
+end
+
+local function getOptions()
+    if app.isUIAvailable then
+        return getOptionsFromDialog()
+    else
+        return getOptionsFromCLIArgument()
+    end
+end
+
+if not app.isUIAvailable then
+    print("Version: " .. tostring(ScriptInfo.version))
+end
+
+local filename, frameIndex, showCompleated, proceed = getOptions()
+if not proceed then
+    return
+end
+
+local activeSprite = app.activeSprite
+local succeeded, message = ExportToPsd(app.activeSprite, filename, frameIndex)
+if not succeeded then
+    if app.isUIAvailable then
+        app.alert({
+            title = "Export Failed",
+            text = message,
+            buttons = "OK"
+        })
+    else
+        io.stdout:write("Export failed: " .. message)
+    end
+end
+if app.isUIAvailable then
+    app.activeSprite = activeSprite
+end
+
+if showCompleated then
+    if app.isUIAvailable then
+        app.alert({
+            title = "Export Succeeded",
+            text = "PSD successfully exported to " .. filename,
+            buttons = "OK"
+        })
+    else
+        print("PSD successfully exported to " .. filename)
+    end
+end
