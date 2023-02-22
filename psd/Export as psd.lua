@@ -132,7 +132,7 @@ end
 ---Exports sprite into file
 ---@param sprite Sprite
 ---@param filename string
----@param frameNum integer
+---@param frameNum integer | string
 ---@return boolean
 ---@return string | nil
 function ExportToPsd(sprite, filename, frameNum)
@@ -322,17 +322,57 @@ function ExportToPsd(sprite, filename, frameNum)
 
     ---@param layerGroup Layer[]
     ---@param frameNum integer
+    ---@param asGroup {name: string, isVisible: boolean, isExpanded: boolean} | nil
     ---@return string layerRecord
     ---@return string imageData
     ---@return integer layerCount
-    local function createLayerRecordAndImageData(layerGroup, frameNum)
+    local function createLayerRecordAndImageData(layerGroup, frameNum, asGroup)
         local emptyImageData = "\x00\x00\x00\x00\x00\x00\x00\x00"
         local emptyImageDataSize = { r = 2, g = 2, b = 2, a = 2}
-        local emptyLayerName = "\x00\x00\x00\x00"
 
         local layerCount = 0
         local lrBuffer = {}
         local idBuffer = {}
+
+        if type(asGroup) ~= "nil" then
+            -- group closer
+            layerCount = layerCount + 1
+
+            local closerName = ToPascalString("</Layer " .. asGroup.name .. " >", 4, 128)
+            local flags = 0
+            if not asGroup.isVisible then
+                flags = flags | 2
+            end
+
+            lrBuffer[#lrBuffer + 1] = table.concat({
+                PackU32BE(0), -- top
+                PackU32BE(0), -- left
+                PackU32BE(0), -- bottom
+                PackU32BE(0), -- right
+                PackU16BE(4), -- channel count
+                -- channel information (id, size) x4
+                (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
+                (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
+                (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
+                (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
+                "8BIM",                                  -- blend mode signature
+                "norm",                                  -- blend mode
+                PackU8(255),                             -- opacity
+                PackU8(0),                               -- clipping
+                PackU8(flags),                           -- flags
+                PackU8(0),                               -- filler
+                PackU32BE(4 + 4 + #closerName + 16),     -- extra data field size
+                PackU32BE(0),                            -- layer mask: size = 0
+                PackU32BE(0),                            -- blending ranges data: size = 0
+                closerName,                              -- layer name
+                "8BIM",                                  -- additional layer information: signature
+                "lsct",                                  -- additional layer information: key = lsct (section devider)
+                PackU32BE(4),                            -- additional layer information: length = 4
+                PackU32BE(3),                            -- additional layer information: data = 3 (bounding section devider)
+            })
+            idBuffer[#idBuffer + 1] = emptyImageData
+        end
+
         for _, layer in ipairs(layerGroup) do
             local layerName = ToPascalString(layer.name, 4, 128)
             local flags = 0
@@ -399,85 +439,87 @@ function ExportToPsd(sprite, filename, frameNum)
                     idBuffer[#idBuffer + 1] = imageData
                 end
             else
-                -- a group
-                local closerName = ToPascalString("</Layer " .. layer.name .. " >", 4, 128)
-
-                -- group closer
-                lrBuffer[#lrBuffer + 1] = table.concat({
-                    PackU32BE(0), -- top
-                    PackU32BE(0), -- left
-                    PackU32BE(0), -- bottom
-                    PackU32BE(0), -- right
-                    PackU16BE(4), -- channel count
-                    -- channel information (id, size) x4
-                    (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
-                    (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
-                    (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
-                    (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                    "8BIM",                                  -- blend mode signature
-                    "norm",                                  -- blend mode
-                    PackU8(255),                             -- opacity
-                    PackU8(0),                               -- clipping
-                    PackU8(flags),                           -- flags
-                    PackU8(0),                               -- filler
-                    PackU32BE(4 + 4 + #closerName + 16),     -- extra data field size
-                    PackU32BE(0),                            -- layer mask: size = 0
-                    PackU32BE(0),                            -- blending ranges data: size = 0
-                    closerName,                              -- layer name
-                    "8BIM",                                  -- additional layer information: signature
-                    "lsct",                                  -- additional layer information: key = lsct (section devider)
-                    PackU32BE(4),                            -- additional layer information: length = 4
-                    PackU32BE(3),                            -- additional layer information: data = 3 (bounding section devider)
-                })
-                idBuffer[#idBuffer + 1] = emptyImageData
-
-                -- encode group recursively
-                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum)
+                -- a group: encode group recursively
+                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum, layer)
                 lrBuffer[#lrBuffer + 1] = childLrData
                 idBuffer[#idBuffer + 1] = childIdData
 
-                layerCount = layerCount + 2 + childLayerCount
-
-                -- group opener
-                local additionalInfoData = 1
-                if not layer.isExpanded then
-                    additionalInfoData = 2
-                end
-
-                lrBuffer[#lrBuffer + 1] = table.concat({
-                    PackU32BE(0), -- top
-                    PackU32BE(0), -- left
-                    PackU32BE(0), -- bottom
-                    PackU32BE(0), -- right
-                    PackU16BE(4), -- channel count
-                    -- channel information (id, size) x4
-                    (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
-                    (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
-                    (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
-                    (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                    "8BIM",                                  -- blend mode signature
-                    "norm",                                  -- blend mode
-                    PackU8(255),                             -- opacity
-                    PackU8(0),                               -- clipping
-                    PackU8(flags),                           -- flags
-                    PackU8(0),                               -- filler
-                    PackU32BE(4 + 4 + #layerName + 16),      -- extra data field size
-                    PackU32BE(0),                            -- layer mask: size = 0
-                    PackU32BE(0),                            -- blending ranges data: size = 0
-                    layerName,                               -- layer name
-                    "8BIM",                                  -- additional layer information: signature
-                    "lsct",                                  -- additional layer information: key = lsct (section devider)
-                    PackU32BE(4),                            -- additional layer information: length = 4
-                    PackU32BE(additionalInfoData),           -- additional layer information: data = 3 (bounding section devider)
-                })
-                idBuffer[#idBuffer + 1] = emptyImageData
+                layerCount = layerCount + childLayerCount
             end
+        end
+
+        if type(asGroup) ~= "nil" then
+            -- group closer
+            layerCount = layerCount + 1
+
+            local layerName = ToPascalString(asGroup.name, 4, 128)
+            local flags = 0
+            if not asGroup.isVisible then
+                flags = flags | 2
+            end
+            local additionalInfoData = 1
+            if not asGroup.isExpanded then
+                additionalInfoData = 2
+            end
+
+            lrBuffer[#lrBuffer + 1] = table.concat({
+                PackU32BE(0), -- top
+                PackU32BE(0), -- left
+                PackU32BE(0), -- bottom
+                PackU32BE(0), -- right
+                PackU16BE(4), -- channel count
+                -- channel information (id, size) x4
+                (">I2>I4"):pack(0x0000, emptyImageDataSize.r),
+                (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
+                (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
+                (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
+                "8BIM",                                  -- blend mode signature
+                "norm",                                  -- blend mode
+                PackU8(255),                             -- opacity
+                PackU8(0),                               -- clipping
+                PackU8(flags),                           -- flags
+                PackU8(0),                               -- filler
+                PackU32BE(4 + 4 + #layerName + 16),      -- extra data field size
+                PackU32BE(0),                            -- layer mask: size = 0
+                PackU32BE(0),                            -- blending ranges data: size = 0
+                layerName,                               -- layer name
+                "8BIM",                                  -- additional layer information: signature
+                "lsct",                                  -- additional layer information: key = lsct (section devider)
+                PackU32BE(4),                            -- additional layer information: length = 4
+                PackU32BE(additionalInfoData),           -- additional layer information: data = 3 (bounding section devider)
+            })
+            idBuffer[#idBuffer + 1] = emptyImageData
         end
 
         return table.concat(lrBuffer), table.concat(idBuffer), layerCount
     end
 
-    local lrData, idData, layerCount = createLayerRecordAndImageData(sprite.layers, frameNum)
+    local lrBuffer = {} --[[ @as string[] ]]
+    local idBuffer = {} --[[ @as string[] ]]
+    local layerCount = 0
+    if type(frameNum) == "number" then
+        local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, frameNum)
+        lrBuffer[#lrBuffer + 1] = lrData
+        idBuffer[#idBuffer + 1] = idData
+        layerCount = layerCount + layerCount_
+    else
+        if frameNum == "anim:all" then
+            for index = 1, #sprite.frames do
+                local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, index, {
+                    name = "Frame " .. index,
+                    isVisible = (index == 1),
+                    isExpanded = false
+                })
+                lrBuffer[#lrBuffer + 1] = lrData
+                idBuffer[#idBuffer + 1] = idData
+                layerCount = layerCount + layerCount_
+            end
+        else
+            error("Internal error: the frame specifier \"" .. frameNum .. "\" is invalid.")
+        end
+    end
+    local lrData = table.concat(lrBuffer)
+    local idData = table.concat(idBuffer)
     local padLayerAndMask = false
     local layerInfoSize = 2 + #lrData + #idData
     if layerInfoSize % 2 == 1 then
@@ -663,7 +705,7 @@ end
 --   return
 -- end
 
-local succeeded, message = ExportToPsd(app.activeSprite, app.activeSprite.filename .. ".psd", 1)
+local succeeded, message = ExportToPsd(app.activeSprite, app.activeSprite.filename .. ".psd", "anim:all")
 if not succeeded then
     print(message)
 end
