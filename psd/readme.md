@@ -20,8 +20,8 @@
 
 ## Download
 
-- [Pre-release](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/dev/psd/Export%20as%20psd.lua)
 - [Latest](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
+- [Development](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/dev/psd/Export%20as%20psd.lua)
 
 ## Update Log
 
@@ -47,16 +47,17 @@
 
 ## Reference
 
-Aseprite API (https://github.com/aseprite/api)
-Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
-Lua 5.1 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua51_manual_ja.html)
-Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)
-Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)
-PSD Tool (https://oov.github.io/psdtool/)
+- Aseprite API (https://github.com/aseprite/api)
+- Adobe Photoshop File Formats Specification (https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
+- Lua 5.3 リファレンスマニュアル (http://milkpot.sakura.ne.jp/lua/lua53_manual_ja.html)
+- Anatomy of a PSD File (https://github.com/layervault/psd.rb/wiki/Anatomy-of-a-PSD-File)
+- Lua で数値の型チェック（整数なのか浮動小数点なのかを判定する方法） (https://qiita.com/iigura/items/4db51859fc49130d5f0c)
+- PSD Tool (https://oov.github.io/psdtool/)
 
 ## Acknowledgments
 
-[燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script. Great thanks to him.
+- [燻丸](https://twitter.com/ibushi_maru) gave me support a lot in sharing this script.
+- All the testers of this script
 
 ## Others
 
