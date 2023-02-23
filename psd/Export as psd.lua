@@ -1,8 +1,11 @@
 -- export sprite as psd file
+--
+-- version: 1.3.0
+-- remote: https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd
 ------------------------------------------------------------
 
 ScriptInfo = {
-    version = Version("1.3.0-alpha.1"),
+    version = Version("1.3.0"),
     remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
 }
 
