@@ -519,7 +519,7 @@ function GetColorSpriteSpace(x, y, cel)
             return PackU32LE(0x00000000)
         end
 
-        local color = sprite.setPalette[1]:getColor(pixel).rgbaPixel
+        local color = sprite.palettes[1]:getColor(pixel).rgbaPixel
 
         if isLittleEndian then
             -- ordering: ABGR
