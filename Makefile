@@ -32,7 +32,7 @@ $(LIB_NEBLUA): $(LIB)
 
 .PHONY: test
 test: $(LIB_TEST)
-	# todo
+	lua pkg/test.lua
 
 .PHONY: clean
 clean: 
