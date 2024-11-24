@@ -7,4 +7,8 @@ describe("pkg", function()
         require("pkg.string.pack_test")
         require("pkg.string.pascalString_test")
     end)
+
+    describe("number", function()
+        require("pkg.number.isInteger_test")
+    end)
 end)
