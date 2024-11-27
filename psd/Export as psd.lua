@@ -442,8 +442,8 @@ function ExportToPsd(sprite, filename, frameNum)
                     -- a layer with content
                     local imageData, imageDataSize = createImageData(cel.image)
                     
-                    -- use cel opacity if layer does not have opacity, otherwise layer opacity
-                    local opacity = layer.opacity == 255 and cel.opacity or layer.opacity
+                    -- composite layer and cel opacity
+                    local opacity = math.floor((layer.opacity / 255) * cel.opacity)     
 
                     lrBuffer[#lrBuffer + 1] = table.concat({
                         PackI32BE(cel.bounds.y),                     -- top
