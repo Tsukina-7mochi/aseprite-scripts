@@ -1,11 +1,11 @@
 -- export sprite as psd file
 --
--- version: 1.3.0
+-- version: 1.3.1
 -- remote: https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd
 ------------------------------------------------------------
 
 ScriptInfo = {
-    version = Version("1.3.0"),
+    version = Version("1.3.1"),
     remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
 }
 
@@ -441,6 +441,9 @@ function ExportToPsd(sprite, filename, frameNum)
                 else
                     -- a layer with content
                     local imageData, imageDataSize = createImageData(cel.image)
+                    
+                    -- composite layer and cel opacity
+                    local opacity = math.floor((layer.opacity / 255) * cel.opacity)     
 
                     lrBuffer[#lrBuffer + 1] = table.concat({
                         PackI32BE(cel.bounds.y),                     -- top
@@ -455,7 +458,7 @@ function ExportToPsd(sprite, filename, frameNum)
                         (">I2>I4"):pack(0xFFFF, imageDataSize.a),
                         "8BIM",                              -- blend mode signature
                         blendModeTable[cel.layer.blendMode], -- blend mode
-                        PackU8(layer.opacity),               -- opacity
+                        PackU8(opacity),                     -- opacity
                         PackU8(0),                           -- clipping
                         PackU8(flags),                       -- flags
                         PackU8(0),                           -- filler
