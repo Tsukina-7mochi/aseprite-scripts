@@ -1,5 +1,3 @@
-local pack = require("pkg.string.pack")
-
 ---Converts `str` into pascal string
 ---@param str string
 ---@param align? number pad result string with 0 to make result length to be multiple of `align`
@@ -13,9 +11,7 @@ local toPascalString = function(str, align, max_length)
         align = 1
     end
 
-    local tail_0_num = align - 1 - #str % align
-
-    return pack.u8(#str) .. str .. ("\x00"):rep(tail_0_num)
+    return ("!" .. align .. "s1Xi"):pack(str)
 end
 
 return toPascalString
