@@ -1,4 +1,4 @@
---- Return true if given number is an integer
+--- Return true if given value is an integer
 ---@param val any
 ---@return boolean
 local function isInteger(val)
@@ -9,4 +9,4 @@ local function isInteger(val)
     return val % 1 .. "" == "0"
 end
 
-return isInteger
+return { isInteger = isInteger }
