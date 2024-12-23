@@ -2,19 +2,18 @@ LUA = lua
 DIST = ./dist
 LIB = ./lib
 LIB_TEST = $(LIB)/test.lua
-LIB_NEBLUA = $(LIB)/neblua-cli.lua
-
+LIB_NEBLUA = $(LIB)/neblua.lua
 
 build: build-psd build-lcd build-cur
 
 build-psd: $(DIST) $(LIB_NEBLUA)
-	#todo
+	DIST_DIR=$(DIST) $(LUA) ./psd/build.lua
 
 build-lcd: $(DIST) $(LIB_NEBLUA)
-	#todo
+	DIST_DIR=$(DIST) $(LUA) ./lcd-pixel-filter/build.lua
 
 build-cur: $(DIST) $(LIB_NEBLUA)
-	#todo
+	DIST_DIR=$(DIST) $(LUA) ./icon-and-cursor/build.lua
 
 prepare: $(LIB_TEST) $(LIB_NEBLUA)
 
@@ -28,11 +27,11 @@ $(LIB_TEST): $(LIB)
 	curl -sSL https://github.com/Tsukina-7mochi/lua-testing-library/releases/latest/download/test.lua > $(LIB_TEST)
 
 $(LIB_NEBLUA): $(LIB)
-	curl -sSL https://github.com/Tsukina-7mochi/neblua/releases/latest/download/neblua-cli.lua > $(LIB_NEBLUA)
+	curl -sSL https://github.com/Tsukina-7mochi/neblua/releases/latest/download/neblua.lua > $(LIB_NEBLUA)
 
 .PHONY: test
 test: $(LIB_TEST)
-	lua pkg/test.lua
+	$(LUA) pkg/test.lua
 
 .PHONY: clean
 clean: 
