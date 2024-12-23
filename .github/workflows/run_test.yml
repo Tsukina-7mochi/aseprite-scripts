@@ -1,0 +1,20 @@
+name: Run Tests
+
+on: push
+
+jobs:
+  run-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          lua-version: 5.4
+
+      - name: Run test
+        run: make test
