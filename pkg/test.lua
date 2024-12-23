@@ -10,5 +10,6 @@ describe("pkg", function()
 
     describe("type", function()
         require("pkg.type.isType_test")
+        require("pkg.type.validate_test")
     end)
 end)
