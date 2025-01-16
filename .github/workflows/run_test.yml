@@ -18,3 +18,49 @@ jobs:
 
       - name: Run test
         run: make test
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          lua-version: 5.4
+
+      - name: Build
+        run: |
+          make clean
+          make build
+
+  print-manifest:
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    strategy:
+      matrix:
+        filename:
+          - dist/Export as psd.lua
+          - dist/Export as ico cur ani.lua
+          - dist/LCD Pixel Filter.luLICENSE
+
+    steps:
+      - uses: ./.github/actions/use-script-manifest
+        id: manifest
+        with:
+          filename: ${{ matrix.filename }}
+
+      - name: Check package manifest
+        run: |
+          echo 'name:    ${{ steps.manifest.outputs.name }}'
+          echo 'description:    ${{ steps.manifest.outputs.description }}'
+          echo 'version: ${{ steps.manifest.outputs.version }}'
+          echo 'author: ${{ steps.manifest.outputs.author }}'
+          echo 'license: ${{ steps.manifest.outputs.license }}'
+          echo 'homepage: ${{ steps.manifest.outputs.homepage }}'

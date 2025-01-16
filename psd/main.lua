@@ -1,19 +1,19 @@
--- export sprite as psd file
---
--- version: 1.3.1
--- remote: https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd
-------------------------------------------------------------
-
-ScriptInfo = {
-    version = Version("1.3.1"),
-    remote = "https://github.com/Tsukina-7mochi/aseprite-scripts/tree/master/psd"
+package.manifest = {
+    name = "aseprite-scripts/psd",
+    description = "Exports sprite as a PSD file",
+    version = "1.3.1",
+    author = "Mooncake Sugar",
+    license = "MIT",
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/"
 }
+
+if not app then return end
 
 --- Return whether given number is an integer
 ---@param val any
 ---@return boolean
 function IsInteger(val)
-    if type(val)~="number" then
+    if type(val) ~= "number" then
         return false
     end
 
@@ -240,7 +240,7 @@ function ExportToPsd(sprite, filename, frameNum)
     local fileHeaderData = table.concat({
         "8BPS",                   -- signature
         PackU16BE(1),             -- version = 1
-        (">I6"):pack(0),           -- resevered = 0
+        (">I6"):pack(0),          -- resevered = 0
         PackU16BE(4),             -- channels = 4 (RGBA)
         PackU32BE(sprite.height), -- height
         PackU32BE(sprite.width),  -- width
@@ -356,7 +356,7 @@ function ExportToPsd(sprite, filename, frameNum)
     ---@return integer layerCount
     local function createLayerRecordAndImageData(layerGroup, frameNum, asGroup)
         local emptyImageData = "\x00\x00\x00\x00\x00\x00\x00\x00"
-        local emptyImageDataSize = { r = 2, g = 2, b = 2, a = 2}
+        local emptyImageDataSize = { r = 2, g = 2, b = 2, a = 2 }
 
         local layerCount = 0
         local lrBuffer = {}
@@ -383,20 +383,20 @@ function ExportToPsd(sprite, filename, frameNum)
                 (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
                 (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
                 (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                "8BIM",                                  -- blend mode signature
-                "norm",                                  -- blend mode
-                PackU8(255),                             -- opacity
-                PackU8(0),                               -- clipping
-                PackU8(flags),                           -- flags
-                PackU8(0),                               -- filler
-                PackU32BE(4 + 4 + #closerName + 16),     -- extra data field size
-                PackU32BE(0),                            -- layer mask: size = 0
-                PackU32BE(0),                            -- blending ranges data: size = 0
-                closerName,                              -- layer name
-                "8BIM",                                  -- additional layer information: signature
-                "lsct",                                  -- additional layer information: key = lsct (section devider)
-                PackU32BE(4),                            -- additional layer information: length = 4
-                PackU32BE(3),                            -- additional layer information: data = 3 (bounding section devider)
+                "8BIM",                              -- blend mode signature
+                "norm",                              -- blend mode
+                PackU8(255),                         -- opacity
+                PackU8(0),                           -- clipping
+                PackU8(flags),                       -- flags
+                PackU8(0),                           -- filler
+                PackU32BE(4 + 4 + #closerName + 16), -- extra data field size
+                PackU32BE(0),                        -- layer mask: size = 0
+                PackU32BE(0),                        -- blending ranges data: size = 0
+                closerName,                          -- layer name
+                "8BIM",                              -- additional layer information: signature
+                "lsct",                              -- additional layer information: key = lsct (section devider)
+                PackU32BE(4),                        -- additional layer information: length = 4
+                PackU32BE(3),                        -- additional layer information: data = 3 (bounding section devider)
             })
             idBuffer[#idBuffer + 1] = emptyImageData
         end
@@ -441,9 +441,9 @@ function ExportToPsd(sprite, filename, frameNum)
                 else
                     -- a layer with content
                     local imageData, imageDataSize = createImageData(cel.image)
-                    
+
                     -- composite layer and cel opacity
-                    local opacity = math.floor((layer.opacity / 255) * cel.opacity)     
+                    local opacity = math.floor((layer.opacity / 255) * cel.opacity)
 
                     lrBuffer[#lrBuffer + 1] = table.concat({
                         PackI32BE(cel.bounds.y),                     -- top
@@ -471,7 +471,8 @@ function ExportToPsd(sprite, filename, frameNum)
                 end
             else
                 -- a group: encode group recursively
-                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum, layer)
+                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum,
+                    layer)
                 lrBuffer[#lrBuffer + 1] = childLrData
                 idBuffer[#idBuffer + 1] = childIdData
 
@@ -504,20 +505,20 @@ function ExportToPsd(sprite, filename, frameNum)
                 (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
                 (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
                 (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                "8BIM",                                  -- blend mode signature
-                "norm",                                  -- blend mode
-                PackU8(255),                             -- opacity
-                PackU8(0),                               -- clipping
-                PackU8(flags),                           -- flags
-                PackU8(0),                               -- filler
-                PackU32BE(4 + 4 + #layerName + 16),      -- extra data field size
-                PackU32BE(0),                            -- layer mask: size = 0
-                PackU32BE(0),                            -- blending ranges data: size = 0
-                layerName,                               -- layer name
-                "8BIM",                                  -- additional layer information: signature
-                "lsct",                                  -- additional layer information: key = lsct (section devider)
-                PackU32BE(4),                            -- additional layer information: length = 4
-                PackU32BE(additionalInfoData),           -- additional layer information: data = 3 (bounding section devider)
+                "8BIM",                             -- blend mode signature
+                "norm",                             -- blend mode
+                PackU8(255),                        -- opacity
+                PackU8(0),                          -- clipping
+                PackU8(flags),                      -- flags
+                PackU8(0),                          -- filler
+                PackU32BE(4 + 4 + #layerName + 16), -- extra data field size
+                PackU32BE(0),                       -- layer mask: size = 0
+                PackU32BE(0),                       -- blending ranges data: size = 0
+                layerName,                          -- layer name
+                "8BIM",                             -- additional layer information: signature
+                "lsct",                             -- additional layer information: key = lsct (section devider)
+                PackU32BE(4),                       -- additional layer information: length = 4
+                PackU32BE(additionalInfoData),      -- additional layer information: data = 3 (bounding section devider)
             })
             idBuffer[#idBuffer + 1] = emptyImageData
         end
@@ -798,7 +799,7 @@ local function getOptionsFromCLIArgument()
     local proceed = true
 
     if filename == nil then
-        proceed= false
+        proceed = false
         filename = ""
         io.stderr:write("Export failed: output filename is required.")
     elseif frameIndex == nil then

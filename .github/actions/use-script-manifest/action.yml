@@ -1,0 +1,62 @@
+name: Use Script Manifest
+description: Parses script manifest from file
+
+inputs:
+  filename:
+    required: true
+    type: string
+  object-path:
+    type: string
+    default: package.manifest
+
+outputs:
+  name:
+    value: ${{ steps.manifest.outputs.name }}
+  description:
+    value: ${{ steps.manifest.outputs.description }}
+  version:
+    value: ${{ steps.manifest.outputs.versino }}
+  author:
+    value: ${{ steps.manifest.outputs.author }}
+  license:
+    value: ${{ steps.manifest.outputs.license }}
+  homepage:
+    value: ${{ steps.manifest.outputs.homepage }}
+
+runs:
+  using: composite
+
+  steps:
+    - name: Find Lua
+      id: find-lua
+      shell: bash
+      run: |
+        if [ command -v lua ]; then
+          echo "found=true" >> $GITHUB_OUTPUT
+        else
+          echo "found=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Setup Lua
+      if: ${{ steps.find-lua.output.found == false }}
+      uses: leafo/gh-actions-lua@v10
+      with:
+        lua-version: 5.4
+
+    - name: Parse manifest
+      id: manifest
+      shell: bash
+      run: |
+        NAME="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.name)'
+        DESCRIPTION="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.description)'
+        VERSION="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.version)'
+        AUTHOR="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.author)'
+        LICENSE="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.license)'
+        HOMEPAGE="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.homepage)'
+
+        echo "name=$NAME" >> $GITHUB_OUTPUT
+        echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+        echo "license=$LICENSE" >> $GITHUB_OUTPUT
+        echo "homepage=$HOMEPAGE" >> $GITHUB_OUTPUT
