@@ -23,6 +23,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
+    strategy:
+      matrix:
+        target:
+          - '{
+              "name": "psd",
+              "output": "./dist/Export as psd.lua"
+            }'
+          - '{
+              "name": "icon-and-cursor",
+              "output": "./dist/Export as ico cur ani.lua"
+            }'
+          - '{
+              "name": "lcd-pixel-filter",
+              "output": "./dist/LCD Pixel Filter.lua"
+            }'
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,32 +51,18 @@ jobs:
       - name: Build
         run: |
           make clean
-          make build
+          make build-${{ fromJSON(matrix.target).name }}
 
-  print-manifest:
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-
-    strategy:
-      matrix:
-        filename:
-          - dist/Export as psd.lua
-          - dist/Export as ico cur ani.lua
-          - dist/LCD Pixel Filter.luLICENSE
-
-    steps:
       - uses: ./.github/actions/use-script-manifest
         id: manifest
         with:
-          filename: ${{ matrix.filename }}
+          filename: ${{ fromJSON(matrix.target).output }}
 
       - name: Check package manifest
         run: |
-          echo 'name:    ${{ steps.manifest.outputs.name }}'
-          echo 'description:    ${{ steps.manifest.outputs.description }}'
-          echo 'version: ${{ steps.manifest.outputs.version }}'
-          echo 'author: ${{ steps.manifest.outputs.author }}'
-          echo 'license: ${{ steps.manifest.outputs.license }}'
-          echo 'homepage: ${{ steps.manifest.outputs.homepage }}'
+          echo 'name:        ${{ steps.manifest.outputs.name }}'
+          echo 'description: ${{ steps.manifest.outputs.description }}'
+          echo 'version:     ${{ steps.manifest.outputs.version }}'
+          echo 'author:      ${{ steps.manifest.outputs.author }}'
+          echo 'license:     ${{ steps.manifest.outputs.license }}'
+          echo 'homepage:    ${{ steps.manifest.outputs.homepage }}'

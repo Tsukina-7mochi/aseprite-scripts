@@ -27,19 +27,7 @@ runs:
   using: composite
 
   steps:
-    - name: Find Lua
-      id: find-lua
-      shell: bash
-      run: |
-        if [ command -v lua ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
-        else
-          echo "found=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Setup Lua
-      if: ${{ steps.find-lua.output.found == false }}
-      uses: leafo/gh-actions-lua@v10
+    - uses: leafo/gh-actions-lua@v10
       with:
         lua-version: 5.4
 
@@ -47,12 +35,17 @@ runs:
       id: manifest
       shell: bash
       run: |
-        NAME="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.name)'
-        DESCRIPTION="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.description)'
-        VERSION="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.version)'
-        AUTHOR="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.author)'
-        LICENSE="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.license)'
-        HOMEPAGE="$(lua -e 'dofile("${{ inputs.filename }}"); print({{ object-path }}.homepage)'
+        echo "::debug::Target Lua file: ${{ inputs.filename }}"
+        echo "::debug::Path to manifest object: ${{ inputs.object-path }}"
+
+        DOFILE='dofile("${{ inputs.filename }}")'
+
+        NAME="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.name)")"
+        DESCRIPTION="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.description)")"
+        VERSION="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.version)")"
+        AUTHOR="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.author)")"
+        LICENSE="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.license)")"
+        HOMEPAGE="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.homepage)")"
 
         echo "name=$NAME" >> $GITHUB_OUTPUT
         echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
