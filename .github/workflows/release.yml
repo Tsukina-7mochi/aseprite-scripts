@@ -62,9 +62,7 @@ jobs:
           name: ${{ env.build-artifact-name }}
           path: dist
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - run: ls -R
 
       - uses: ./.github/actions/use-script-manifest
         id: manifest
