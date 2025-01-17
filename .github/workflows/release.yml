@@ -3,6 +3,9 @@ name: Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -15,14 +18,14 @@ jobs:
               "name": "psd",
               "output": "./dist/Export as psd.lua"
             }'
-          - '{
-              "name": "icon-and-cursor",
-              "output": "./dist/Export as ico cur ani.lua"
-            }'
-          - '{
-              "name": "lcd-pixel-filter",
-              "output": "./dist/LCD Pixel Filter.lua"
-            }'
+          # - '{
+          #     "name": "icon-and-cursor",
+          #     "output": "./dist/Export as ico cur ani.lua"
+          #   }'
+          # - '{
+          #     "name": "lcd-pixel-filter",
+          #     "output": "./dist/LCD Pixel Filter.lua"
+          #   }'
 
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +70,9 @@ jobs:
 
       - name: Create tag
         if: ${{ steps.tag-check.outputs.exists == 0 }}
-        run: git tag ${{ env.tag-name }}
+        run: |
+          git tag ${{ env.tag-name }}
+          git push origin ${{ env.tag-name }}
 
       - name: Create Release
         if: ${{ steps.tag-check.outputs.exists == 0 }}
@@ -75,4 +80,4 @@ jobs:
           FILENAME: ${{ fromJSON(matrix.target).output }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ env.tag-name }}" -t "${{ github.env.release-name }}" "$FILENAME"
+          gh release create "${{ env.tag-name }}" -t "${{ env.release-name }}" "$FILENAME"
