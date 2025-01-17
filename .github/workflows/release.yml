@@ -80,4 +80,5 @@ jobs:
           FILENAME: ${{ fromJSON(matrix.target).output }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          FILENAME="$(echo "$FILENAME" | sed -e 's/ /\\ /g')"
           gh release create "${{ env.tag-name }}" -t "${{ env.release-name }}" "$FILENAME"
