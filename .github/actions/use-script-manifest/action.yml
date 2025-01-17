@@ -15,7 +15,7 @@ outputs:
   description:
     value: ${{ steps.manifest.outputs.description }}
   version:
-    value: ${{ steps.manifest.outputs.versino }}
+    value: ${{ steps.manifest.outputs.version }}
   author:
     value: ${{ steps.manifest.outputs.author }}
   license:
