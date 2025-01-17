@@ -43,9 +43,6 @@ setmetatable(chunk --[[ @as unknown ]], {
 
         return value
     end,
-    index = {
-        toString = chunk.tostring,
-    }
 })
 
 return { chunk = chunk }
