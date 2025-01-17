@@ -73,5 +73,6 @@ jobs:
         if: ${{ steps.tag-check.outputs.exists == 0 }}
         env:
           FILENAME: ${{ fromJSON(matrix.target).output }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release create -t ${{ github.env.release-name }} $FILENAME
