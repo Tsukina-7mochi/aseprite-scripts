@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    strategy:
+      matrix:
+        target:
+          - '{
+              "name": "psd",
+              "output": "./dist/Export as psd.lua"
+            }'
+          - '{
+              "name": "icon-and-cursor",
+              "output": "./dist/Export as ico cur ani.lua"
+            }'
+          - '{
+              "name": "lcd-pixel-filter",
+              "output": "./dist/LCD Pixel Filter.lua"
+            }'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          lua-version: 5.4
+
+      - name: Build
+        run: |
+          make clean
+          make build-${{ fromJSON(matrix.target).name }}
+
+      - uses: ./.github/actions/use-script-manifest
+        id: manifest
+        with:
+          filename: ${{ fromJSON(matrix.target).output }}
+
+      - name: Set env
+        env:
+          NAME: ${{ steps.manifest.outputs.name }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          TAG_NAME="${NAME##*/}-$VERSION"
+          RELEASE_NAME="Release ${NAME##*/} $VERSION"
+
+          echo "tag-name=$TAG_NAME" >> $GITHUB_ENV
+          echo "release-name=$RELEASE_NAME" >> $GITHUB_ENV
+
+      - name: Check if tag exists
+        id: tag-check
+        run: |
+          if git tag | grep "${{ env.tag-name }}"; then
+            echo "::debug::Tag ${{ env.tag-name }} exits."
+            echo "exists=1" >> $GITHUB_OUTPUT
+          else
+            echo "::debug::Tag ${{ env.tag-name }} does not exist."
+            echo "exists=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create tag
+        if: ${{ steps.tag-check.outputs.exists == 0 }}
+        run: git tag ${{ env.tag-name }}
+
+      - name: Create Release
+        if: ${{ steps.tag-check.outputs.exists == 0 }}
+        env:
+          FILENAME: ${{ fromJSON(matrix.target).output }}
+        run: |
+          gh release create -t ${{ github.env.release-name }} $FILENAME

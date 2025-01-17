@@ -1,0 +1,55 @@
+name: Use Script Manifest
+description: Parses script manifest from file
+
+inputs:
+  filename:
+    required: true
+    type: string
+  object-path:
+    type: string
+    default: package.manifest
+
+outputs:
+  name:
+    value: ${{ steps.manifest.outputs.name }}
+  description:
+    value: ${{ steps.manifest.outputs.description }}
+  version:
+    value: ${{ steps.manifest.outputs.versino }}
+  author:
+    value: ${{ steps.manifest.outputs.author }}
+  license:
+    value: ${{ steps.manifest.outputs.license }}
+  homepage:
+    value: ${{ steps.manifest.outputs.homepage }}
+
+runs:
+  using: composite
+
+  steps:
+    - uses: leafo/gh-actions-lua@v10
+      with:
+        lua-version: 5.4
+
+    - name: Parse manifest
+      id: manifest
+      shell: bash
+      run: |
+        echo "::debug::Target Lua file: ${{ inputs.filename }}"
+        echo "::debug::Path to manifest object: ${{ inputs.object-path }}"
+
+        DOFILE='dofile("${{ inputs.filename }}")'
+
+        NAME="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.name)")"
+        DESCRIPTION="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.description)")"
+        VERSION="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.version)")"
+        AUTHOR="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.author)")"
+        LICENSE="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.license)")"
+        HOMEPAGE="$(lua -e "$DOFILE; print(${{ inputs.object-path }}.homepage)")"
+
+        echo "name=$NAME" >> $GITHUB_OUTPUT
+        echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+        echo "license=$LICENSE" >> $GITHUB_OUTPUT
+        echo "homepage=$HOMEPAGE" >> $GITHUB_OUTPUT

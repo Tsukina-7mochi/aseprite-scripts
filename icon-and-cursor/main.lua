@@ -1,7 +1,13 @@
--- Version: 0.1.0
--- GitHub: https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/Export%20as%20ico%20cur%20ani.lua
---
--- Export sprite as ico or cur, ani
+package.manifest = {
+    name = "aseprite-scripts/icon-and-cursor",
+    description = "Export sprite as windows icon and cursor.",
+    version = "v0.1.0",
+    author = "Mooncake Sugar",
+    license = "MIT",
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/"
+}
+
+if not app then return end
 
 -- shows alert with failure message
 function FailAlert(text)
