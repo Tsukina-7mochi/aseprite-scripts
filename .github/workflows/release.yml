@@ -75,4 +75,4 @@ jobs:
           FILENAME: ${{ fromJSON(matrix.target).output }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create -t "${{ github.env.release-name }}" "$FILENAME"
+          gh release create "${{ env.tag-name }}" -t "${{ github.env.release-name }}" "$FILENAME"
