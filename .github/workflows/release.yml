@@ -18,14 +18,14 @@ jobs:
               "name": "psd",
               "output": "./dist/Export as psd.lua"
             }'
-          # - '{
-          #     "name": "icon-and-cursor",
-          #     "output": "./dist/Export as ico cur ani.lua"
-          #   }'
-          # - '{
-          #     "name": "lcd-pixel-filter",
-          #     "output": "./dist/LCD Pixel Filter.lua"
-          #   }'
+          - '{
+              "name": "icon-and-cursor",
+              "output": "./dist/Export as ico cur ani.lua"
+            }'
+          - '{
+              "name": "lcd-pixel-filter",
+              "output": "./dist/LCD Pixel Filter.lua"
+            }'
 
     steps:
       - uses: actions/checkout@v4
