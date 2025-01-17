@@ -12,4 +12,8 @@ describe("pkg", function()
         require("pkg.type.isType_test")
         require("pkg.type.validate_test")
     end)
+
+    describe("riff", function()
+        require("pkg.riff.riff_test")
+    end)
 end)
