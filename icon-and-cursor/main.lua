@@ -1,7 +1,7 @@
 package.manifest = {
     name = "aseprite-scripts/icon-and-cursor",
     description = "Export sprite as windows icon and cursor.",
-    version = "0.1.0",
+    version = "v0.1.0",
     author = "Mooncake Sugar",
     license = "MIT",
     homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/"
