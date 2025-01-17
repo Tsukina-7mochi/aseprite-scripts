@@ -34,6 +34,11 @@ jobs:
           path: dist
           retention-days: 1
           overwrite: true
+          
+      - uses: actions/upload-pages-artifact
+        with:
+          path: dist
+          retention-days: 1
 
   release:
     needs: build
@@ -124,5 +129,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          artifact_name: ${{ env.build-artifact-name }}
