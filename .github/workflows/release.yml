@@ -28,6 +28,12 @@ jobs:
           make clean
           make build
 
+      - name: Fix permissions
+        run: |
+          chmod -c -R +rX "_site/" | while read line; do
+            echo "::warning title=Invalid file permissions automatically fixed::$line"
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.build-artifact-name }}
@@ -35,7 +41,7 @@ jobs:
           retention-days: 1
           overwrite: true
           
-      - uses: actions/upload-pages-artifact
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
           retention-days: 1
@@ -70,8 +76,6 @@ jobs:
         with:
           name: ${{ env.build-artifact-name }}
           path: dist
-
-      - run: ls -R
 
       - uses: ./.github/actions/use-script-manifest
         id: manifest
