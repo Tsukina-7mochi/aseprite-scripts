@@ -6,8 +6,37 @@ on:
 permissions:
   contents: write
 
+env:
+  build-artifact-name: build-artifact
+
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          lua-version: 5.4
+
+      - name: Build
+        run: |
+          make clean
+          make build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.build-artifact-name }}
+          path: dist
+          retention-days: 1
+          overwrite: true
+
   release:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -28,18 +57,14 @@ jobs:
             }'
 
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.build-artifact-name }}
+          path: dist
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - uses: leafo/gh-actions-lua@v10
-        with:
-          lua-version: 5.4
-
-      - name: Build
-        run: |
-          make clean
-          make build-${{ fromJSON(matrix.target).name }}
 
       - uses: ./.github/actions/use-script-manifest
         id: manifest
@@ -80,4 +105,24 @@ jobs:
           FILENAME: ${{ fromJSON(matrix.target).output }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ env.tag-name }}" -t "${{ env.release-name }}" "$FILENAME"
+          gh release create "${{ env.tag-name }}" -t "${{ env.release-name }}"
+
+  deploy-pages:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.build-artifact-name }}
