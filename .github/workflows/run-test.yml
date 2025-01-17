@@ -1,4 +1,4 @@
-name: Run Tests
+name: Build and Test
 
 on: push
 
@@ -37,6 +37,10 @@ jobs:
           - '{
               "name": "lcd-pixel-filter",
               "output": "./dist/LCD Pixel Filter.lua"
+            }'
+          - '{
+              "name": "smooth-filter",
+              "output": "./dist/Smooth Filter.lua"
             }'
 
     steps:
