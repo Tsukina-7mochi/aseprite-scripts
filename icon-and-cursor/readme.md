@@ -16,3 +16,9 @@ This script exports sprite as windows icon and cursor files, `.ico` and `.cur`, 
 ## Others
 
 - This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
+
+## Change Log
+
+### v0.1.0
+
+- Release
