@@ -66,10 +66,6 @@ jobs:
               "name": "lcd-pixel-filter",
               "output": "./dist/LCD Pixel Filter.lua"
             }'
-          - '{
-              "name": "smooth-filter",
-              "output": "./dist/Smooth Filter.lua"
-            }'
 
     steps:
       - uses: actions/checkout@v4
