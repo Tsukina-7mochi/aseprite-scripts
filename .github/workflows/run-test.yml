@@ -1,6 +1,11 @@
 name: Build and Test
 
-on: push
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   run-test:
@@ -9,8 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: leafo/gh-actions-lua@v10
         with:
@@ -18,6 +21,24 @@ jobs:
 
       - name: Run test
         run: make test
+
+
+  ensure-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          lua-version: 5.4
+
+      - name: Ensure build
+        run: |
+          make build
+          test -z "$(git diff --name-only)"
+
 
   build:
     runs-on: ubuntu-latest
@@ -27,26 +48,24 @@ jobs:
       matrix:
         target:
           - '{
-              "name": "psd",
-              "output": "./dist/Export as psd.lua"
+              "name": "aseprite-scripts/psd",
+              "output": "./psd/Export as psd.lua"
             }'
           - '{
-              "name": "icon-and-cursor",
-              "output": "./dist/Export as ico cur ani.lua"
+              "name": "aseprite-scripts/icon-and-cursor",
+              "output": "./icon-and-cursor/Export as ico cur ani.lua"
             }'
           - '{
-              "name": "lcd-pixel-filter",
-              "output": "./dist/LCD Pixel Filter.lua"
+              "name": "aseprite-scripts/lcd-pixel-filter",
+              "output": "./lcd-pixel-filter/LCD Pixel Filter.lua"
             }'
           - '{
-              "name": "smooth-filter",
-              "output": "./dist/Smooth Filter.lua"
+              "name": "aseprite-scripts/smooth-filter",
+              "output": "./smooth-filter/Smooth Filter.lua"
             }'
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: leafo/gh-actions-lua@v10
         with:
@@ -54,15 +73,18 @@ jobs:
 
       - name: Build
         run: |
-          make clean
-          make build-${{ fromJSON(matrix.target).name }}
+          make build
 
       - uses: ./.github/actions/use-script-manifest
         id: manifest
         with:
           filename: ${{ fromJSON(matrix.target).output }}
 
-      - name: Check package manifest
+      - name: Check package name
+        run: |
+          test "${{ fromJSON(matrix.target).name }}" = "${{ steps.manifest.outputs.name }}"
+
+      - name: Print package manifest
         run: |
           echo 'name:        ${{ steps.manifest.outputs.name }}'
           echo 'description: ${{ steps.manifest.outputs.description }}'
