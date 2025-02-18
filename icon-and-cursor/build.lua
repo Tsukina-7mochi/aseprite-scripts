@@ -9,4 +9,5 @@ neblua.bundle {
         "./main.lua",
     },
     rootDir = "./icon-and-cursor",
+    fallbackStderr = true,
 }
