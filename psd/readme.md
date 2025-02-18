@@ -22,29 +22,52 @@
 
 [Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
-## Update Log
+## Changelog
 
-- 1.3.1
-  - Support cel opacity
-- 1.3.0
-  - Implement animated psd export
-- 1.2.1
-  - Enriched User Interface.
-- 1.2.0
-  - Fixed problem that some applications cannot open psd file exported by this script
-  - Unsupported shift-JIS
-- 1.1.2
-  - Fixed an issue with compression
-- 1.1.1
-  - Fixed an issue with compression
-- 1.1.0
-  - Support compression
-- 1.0.2 2020/4/15
-  - Support Shift-JIS Character
-- 1.0.1 2020/1/31
-  - Fix issues on exporting empty layer
-- 1.0.0 2020/1/31
-  - First Release
+### v1.3.2
+
+- Introduce NebLua bundler.
+
+### v1.3.1
+
+- Support cel opacity.
+
+### v1.3.0
+
+- Implement animated psd export.
+
+### v1.2.1
+
+- Enriched User Interface.
+
+### v1.2.0
+
+- Fix problem that some applications cannot open psd file exported by this script.
+- Shift-JIS in layer name is no longer supported.
+
+### v1.1.2
+
+- Fix compression issue.
+
+### v1.1.1
+
+- Fix compression issue.
+
+### v1.1.0
+
+- Support compression.
+
+### v1.0.2 
+
+- Support Shift-JIS in layer name.
+
+### v1.0.1
+
+- Fix empty layer issue.
+
+### v1.0.0
+
+- First release.
 
 ## Reference
 

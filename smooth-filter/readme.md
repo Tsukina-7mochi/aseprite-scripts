@@ -4,7 +4,7 @@
 
  A script that applies smooth filter.
 
- ![screenshot](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smoothFilter/screenshot.png)
+ ![screenshot](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/screenshot.png)
 
 ## Installation
 
@@ -28,4 +28,15 @@
 
 ## Download
 
-[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smoothFilter/Smooth%20Filter.lua)
+[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smooth-filter/Smooth%20Filter.lua)
+
+
+## Changelog
+
+### v0.1.1
+
+- Introduce NebLua bundler.
+
+### v0.1.0
+
+- First release.

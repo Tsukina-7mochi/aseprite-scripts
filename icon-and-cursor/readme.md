@@ -19,6 +19,10 @@ This script exports sprite as windows icon and cursor files, `.ico` and `.cur`, 
 
 ## Change Log
 
+### v0.1.1
+
+- Introduce NebLua bundler.
+
 ### v0.1.0
 
-- Release
+- First release.
