@@ -29,6 +29,10 @@ LCD-pixel-like
 
 ## Change Log
 
+### v0.1.1
+
+- Introduce NebLua bundler.
+
 ### v0.1.0
 
-- Release
+- First release.

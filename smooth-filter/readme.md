@@ -29,3 +29,14 @@
 ## Download
 
 [Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smooth-filter/Smooth%20Filter.lua)
+
+
+## Changelog
+
+### v0.1.1
+
+- Introduce NebLua bundler.
+
+### v0.1.0
+
+- First release.
