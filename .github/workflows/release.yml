@@ -120,19 +120,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ env.tag-name }}" -t "${{ env.release-name }}"
-
-  deploy-pages:
-    needs: build
-    permissions:
-      pages: write
-      id-token: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
