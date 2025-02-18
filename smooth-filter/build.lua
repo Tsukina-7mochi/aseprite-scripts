@@ -9,4 +9,5 @@ neblua.bundle {
         "./main.lua",
     },
     rootDir = "./smooth-filter",
+    fallbackStderr = true,
 }

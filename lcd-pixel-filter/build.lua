@@ -9,4 +9,5 @@ neblua.bundle {
         "./main.lua",
     },
     rootDir = "./lcd-pixel-filter",
+    fallbackStderr = true,
 }

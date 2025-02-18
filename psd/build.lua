@@ -9,4 +9,5 @@ neblua.bundle {
         "./main.lua",
     },
     rootDir = "./psd",
+    fallbackStderr = true,
 }

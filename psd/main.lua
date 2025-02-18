@@ -744,7 +744,7 @@ local function getOptionsFromDialog()
         id = "cancel",
         text = "&Cancel"
     }:label {
-        text = "version " .. tostring(ScriptInfo.version)
+        text = "version " .. tostring(package.manifest.version)
     }
     dialog:show()
 
@@ -812,7 +812,7 @@ local function getOptionsFromCLIArgument()
 end
 
 if not app.isUIAvailable then
-    print("Export as psd: version " .. tostring(ScriptInfo.version))
+    print("Export as psd: version " .. tostring(package.manifest.version))
 end
 
 local function getOptions()
