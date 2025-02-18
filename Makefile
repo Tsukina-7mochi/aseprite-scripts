@@ -24,7 +24,3 @@ $(LIB_NEBLUA): $(LIB)
 .PHONY: test
 test: $(LIB_TEST)
 	LUA_PATH=$(LUA_PATH) $(LUA) ./src/pkg/test.lua
-
-.PHONY: clean
-clean: 
-	rm -rf $(DIST) 

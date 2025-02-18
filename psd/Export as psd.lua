@@ -16,7 +16,7 @@ package.manifest = {
     version = "v1.3.1",
     author = "Mooncake Sugar",
     license = "MIT",
-    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/"
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/"
 }
 
 if not app then return end
