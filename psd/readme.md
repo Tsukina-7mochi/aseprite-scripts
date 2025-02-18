@@ -20,8 +20,7 @@
 
 ## Download
 
-- [Latest](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
-- [Development](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/dev/psd/Export%20as%20psd.lua)
+[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
 ## Update Log
 
