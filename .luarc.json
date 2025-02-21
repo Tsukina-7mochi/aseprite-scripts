@@ -3,7 +3,10 @@
   "runtime": {
     "version": "Lua 5.4",
     "path": [
-      "src"
+      "./?.lua",
+      "./?/init.lua",
+      "./src/?.lua",
+      "./src/?/init.lua"
     ]
   },
   "workspace.library": [
