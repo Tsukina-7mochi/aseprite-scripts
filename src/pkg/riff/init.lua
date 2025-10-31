@@ -7,7 +7,7 @@
 local chunk = {}
 
 ---@return string
-function chunk.tostring(self)
+function chunk.tostring (self)
     ---@type string[]
     local payload = {}
     local size = 0
@@ -30,7 +30,7 @@ end
 setmetatable(chunk --[[ @as unknown ]], {
     ---@param id string
     ---@param payload Payload | string
-    __call = function(_, id, payload)
+    __call = function (_, id, payload)
         if type(payload) == "string" then
             payload = { payload }
         end

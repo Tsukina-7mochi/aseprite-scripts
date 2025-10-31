@@ -1,6 +1,6 @@
 local neblua = require("lib.neblua")
 
-neblua.bundle {
+neblua.bundle({
     entry = "entry.iconCursor",
     output = "./icon-and-cursor/Export as ico cur ani.lua",
     include = {
@@ -8,9 +8,9 @@ neblua.bundle {
     },
     rootDir = "./src",
     fallbackStderr = true,
-}
+})
 
-neblua.bundle {
+neblua.bundle({
     entry = "entry.lcdFilter",
     output = "./lcd-pixel-filter/LCD Pixel Filter.lua",
     include = {
@@ -18,10 +18,9 @@ neblua.bundle {
     },
     rootDir = "./src",
     fallbackStderr = true,
-}
+})
 
-
-neblua.bundle {
+neblua.bundle({
     entry = "entry.psd",
     output = "./psd/Export as psd.lua",
     include = {
@@ -29,9 +28,9 @@ neblua.bundle {
     },
     rootDir = "./src",
     fallbackStderr = true,
-}
+})
 
-neblua.bundle {
+neblua.bundle({
     entry = "entry.smoothFilter",
     output = "./smooth-filter/Smooth Filter.lua",
     include = {
@@ -39,4 +38,4 @@ neblua.bundle {
     },
     rootDir = "./src",
     fallbackStderr = true,
-}
+})

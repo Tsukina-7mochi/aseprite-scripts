@@ -5,38 +5,38 @@ local assertType = require("pkg.type.isType")
 
 local isInteger = assertType.isInteger
 
-describe("isType", function()
-    describe("isInteger", function()
-        test("0", function()
+describe("isType", function ()
+    describe("isInteger", function ()
+        test("0", function ()
             expect(isInteger(0)):toEqual(true)
         end)
 
-        test("-1", function()
+        test("-1", function ()
             expect(isInteger(-1)):toEqual(true)
         end)
 
-        test("0.1", function()
+        test("0.1", function ()
             expect(isInteger(0.1)):toEqual(false)
         end)
 
-        test("0.0", function()
+        test("0.0", function ()
             expect(isInteger(0.0)):toEqual(false)
         end)
 
-        test("string", function()
+        test("string", function ()
             expect(isInteger("a")):toEqual(false)
         end)
 
-        test("boolean", function()
+        test("boolean", function ()
             expect(isInteger(true)):toEqual(false)
         end)
 
-        test("nil", function()
+        test("nil", function ()
             expect(isInteger(nil)):toEqual(false)
         end)
 
-        test("function", function()
-            expect(isInteger(function() end)):toEqual(false)
+        test("function", function ()
+            expect(isInteger(function () end)):toEqual(false)
         end)
     end)
 end)

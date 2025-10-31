@@ -1,7 +1,7 @@
 --- Compresses binary data with PackBits
 ---@param data string
 ---@return string
-local packBits = function(data)
+local packBits = function (data)
     if #data == 0 then
         return data
     end
@@ -35,7 +35,7 @@ local packBits = function(data)
                 stack = currentData .. stack
             else
                 -- write out buffer contents and reset state
-                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
                 stack = currentData
                 state = -1
             end
@@ -45,7 +45,7 @@ local packBits = function(data)
                 stack = currentData .. stack
             else
                 -- write out buffer contents and change state
-                result = result .. ('B'):pack(#stack - 2) .. stack:sub(2, -1):reverse()
+                result = result .. ("B"):pack(#stack - 2) .. stack:sub(2, -1):reverse()
                 stack = currentData .. currentData
                 state = 0
             end
@@ -54,9 +54,9 @@ local packBits = function(data)
         if #stack > 0x7F then
             -- write out buffer contents
             if state == 0 then
-                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
             elseif state == 1 or state == -1 then
-                result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+                result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
             end
 
             -- reset state
@@ -70,20 +70,20 @@ local packBits = function(data)
     if #stack > 0 then
         -- write out buffer contents
         if state == 0 then
-            result = result .. ('B'):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
+            result = result .. ("B"):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
         elseif state == 1 or state == -1 then
-            result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+            result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
         end
     end
 
     return result
 end
 
-local function inject()
+local function inject ()
     string.packBits = packBits
 end
 
 return {
     packBits = packBits,
-    inject = inject
+    inject = inject,
 }

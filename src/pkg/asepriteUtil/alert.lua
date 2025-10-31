@@ -5,7 +5,7 @@ local isInteger = require("pkg.number.isInteger")
 ---Prints an alert message to the UI if available, otherwise print to the console.
 ---@param init AlertInit
 ---@return integer
-local function alert(init)
+local function alert (init)
     local title = init.title
     local text = init.text
     local buttons = init.buttons
@@ -18,7 +18,7 @@ local function alert(init)
     end
 
     if app.isUIAvailable then
-        return app.alert { title = title, text = text, buttons = buttons }
+        return app.alert({ title = title, text = text, buttons = buttons })
     else
         if title ~= "" then
             print(title)

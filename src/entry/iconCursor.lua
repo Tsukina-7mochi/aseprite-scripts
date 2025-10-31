@@ -4,19 +4,21 @@ package.manifest = {
     version = "v0.1.1",
     author = "Mooncake Sugar",
     license = "MIT",
-    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/"
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/",
 }
 
-if not app then return end
+if not app then
+    return
+end
 
 -- shows alert with failure message
-function FailAlert(text)
+function FailAlert (text)
     if app.isUIAvailable then
-        app.alert {
+        app.alert({
             title = "Export Failed",
             text = text,
-            buttons = "OK"
-        }
+            buttons = "OK",
+        })
     else
         io.stdout:write("[Export failed] " .. text)
     end
@@ -26,7 +28,7 @@ util = {
     ---split string by `sep`
     ---@param str string
     ---@param sep string
-    split = function(str, sep)
+    split = function (str, sep)
         if sep == nil then
             sep = "%s"
         end
@@ -37,7 +39,7 @@ util = {
         end
 
         return result
-    end
+    end,
 }
 
 ------------------------------
@@ -89,7 +91,7 @@ local exitScript = false
 ---@type boolean
 local printProcessInfo = false
 
-function SetParamFromDialog()
+function SetParamFromDialog ()
     local fileTypes = { "ico", "cur", "ani" }
     local paramTypes = {
         icoSeparator = { "ico" },
@@ -99,11 +101,11 @@ function SetParamFromDialog()
         hotSpotY = { "cur", "ani" },
         frame = { "ico", "cur", "ani" },
         layer = { "ico", "cur", "ani" },
-        framerate = { "ani" }
+        framerate = { "ani" },
     }
 
     local dialog = Dialog()
-    local function updateDialogElementVisibility()
+    local function updateDialogElementVisibility ()
         ---@type string
         for id, param in pairs(paramTypes) do
             local visible = false
@@ -112,96 +114,114 @@ function SetParamFromDialog()
                     visible = true
                 end
             end
-            dialog:modify {
+            dialog:modify({
                 id = id,
-                visible = visible
-            }
+                visible = visible,
+            })
         end
     end
 
-    dialog:combobox {
-        id = "filetype",
-        label = "Type",
-        option = fileTypes[1],
-        options = fileTypes,
-        onchange = function()
-            -- update extension of filename
-            local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
-            filename = filename .. "." .. dialog.data.filetype
+    dialog
+        :combobox({
+            id = "filetype",
+            label = "Type",
+            option = fileTypes[1],
+            options = fileTypes,
+            onchange = function ()
+                -- update extension of filename
+                local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
+                filename = filename .. "." .. dialog.data.filetype
 
-            dialog:modify {
-                id = "filename",
-                filename = filename
-            }
+                dialog:modify({
+                    id = "filename",
+                    filename = filename,
+                })
 
-            -- update frame selection
-            if (dialog.data.filetype --[[@as string]]) == "ani" then
-                if (dialog.data.frame --[[@as string]]):sub(1, 7) == "Frame: " then
-                    dialog:modify {
-                        id = "frame",
-                        option = "All"
-                    }
+                -- update frame selection
+                if
+                    dialog.data.filetype --[[@as string]]
+                    == "ani"
+                then
+                    if
+                        (dialog.data.frame --[[@as string]]):sub(1, 7) == "Frame: "
+                    then
+                        dialog:modify({
+                            id = "frame",
+                            option = "All",
+                        })
+                    end
                 end
-            end
 
-            updateDialogElementVisibility()
-        end
-    }:file {
-        id = "filename",
-        label = "Filename",
-        title = "Export as...",
-        save = true,
-        filename = filename,
-        filetypes = { "ico" }
-    }:separator {
-        id = "icoSeparator",
-        text = ".ico file option"
-    }:separator {
-        id = "curSeparator",
-        text = ".cur file option"
-    }:separator {
-        id = "aniSeparator",
-        text = ".ani file option"
-    }:combobox {
-        id = "layer",
-        label = "Layers",
-        option = layerList[1],
-        options = layerList
-    }:combobox {
-        id = "frame",
-        label = "Frames",
-        option = "Frame: 1",
-        options = frameList
-    }:number {
-        id = "hotSpotX",
-        label = "HotSpot",
-        text = "0"
-    }:number {
-        id = "hotSpotY",
-        text = "0"
-    }:number {
-        id = "framerate",
-        label = "Framerate (1/60s)",
-        text = "" .. framerate,
-        onchange = function()
-            dialog:modify {
-                id = "framerate",
-                text = math.min(0, dialog.data.framerate --[[@as number]])
-            }
-        end
-    }:check {
-        id = "showCompleated",
-        label = "",
-        text = "Show dialog when succeeded",
-        selected = true
-    }:button {
-        id = "ok",
-        text = "&Export",
-        focus = true
-    }:button {
-        id = "cancel",
-        text = "&Cancel"
-    }
+                updateDialogElementVisibility()
+            end,
+        })
+        :file({
+            id = "filename",
+            label = "Filename",
+            title = "Export as...",
+            save = true,
+            filename = filename,
+            filetypes = { "ico" },
+        })
+        :separator({
+            id = "icoSeparator",
+            text = ".ico file option",
+        })
+        :separator({
+            id = "curSeparator",
+            text = ".cur file option",
+        })
+        :separator({
+            id = "aniSeparator",
+            text = ".ani file option",
+        })
+        :combobox({
+            id = "layer",
+            label = "Layers",
+            option = layerList[1],
+            options = layerList,
+        })
+        :combobox({
+            id = "frame",
+            label = "Frames",
+            option = "Frame: 1",
+            options = frameList,
+        })
+        :number({
+            id = "hotSpotX",
+            label = "HotSpot",
+            text = "0",
+        })
+        :number({
+            id = "hotSpotY",
+            text = "0",
+        })
+        :number({
+            id = "framerate",
+            label = "Framerate (1/60s)",
+            text = "" .. framerate,
+            onchange = function ()
+                dialog:modify({
+                    id = "framerate",
+                    text = math.min(0, dialog.data.framerate --[[@as number]]),
+                })
+            end,
+        })
+        :check({
+            id = "showCompleated",
+            label = "",
+            text = "Show dialog when succeeded",
+            selected = true,
+        })
+        :button({
+            id = "ok",
+            text = "&Export",
+            focus = true,
+        })
+        :button({
+            id = "cancel",
+            text = "&Cancel",
+        })
 
     updateDialogElementVisibility()
 
@@ -234,10 +254,10 @@ function SetParamFromDialog()
 
         if filetype_ ~= "ico" and filetype_ ~= "cur" and filetype_ ~= "ani" then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "The file type " .. filetype_ .. " is not supported"
-            }
+                text = "The file type " .. filetype_ .. " is not supported",
+            })
         else
             filetype = filetype_ --[[@as "ico" | "cur" | "ani"]]
         end
@@ -286,32 +306,32 @@ function SetParamFromDialog()
 
         if hotSpotX_ < 0 then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "Hot spot x is too small."
-            }
+                text = "Hot spot x is too small.",
+            })
         elseif hotSpotX_ >= sprite.width then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "Hot spot x is too big."
-            }
+                text = "Hot spot x is too big.",
+            })
         else
             hotSpotX = hotSpotX_
         end
 
         if hotSpotY_ < 0 then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "Hot spot y is too small."
-            }
+                text = "Hot spot y is too small.",
+            })
         elseif hotSpotY_ >= sprite.height then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "Hot spot y is too big."
-            }
+                text = "Hot spot y is too big.",
+            })
         else
             hotSpotY = hotSpotY_
         end
@@ -319,19 +339,21 @@ function SetParamFromDialog()
         framerate_ = math.floor(framerate_)
         if framerate_ < 1 then
             retype = true
-            app.alert {
+            app.alert({
                 title = "Invalid configuration",
-                text = "The frame rate is too small."
-            }
+                text = "The frame rate is too small.",
+            })
         end
 
         showCompleated = showCompleated_
     until not retype
 
-    if not dialog.data.ok then return end
+    if not dialog.data.ok then
+        return
+    end
 end
 
-function SetParamFromCLIArg()
+function SetParamFromCLIArg ()
     printProcessInfo = true
 
     for key, value in pairs(app.params) do
@@ -486,7 +508,7 @@ local isLittleEndian = string.pack("=I2", 1):byte(1) == 1
 ---@param y integer
 ---@param cel Cel
 ---@return string color BGRA color
-function GetColorSpriteSpace(x, y, cel)
+function GetColorSpriteSpace (x, y, cel)
     if x < cel.bounds.x then
         return PackU32LE(0x00000000)
     end
@@ -539,7 +561,7 @@ function GetColorSpriteSpace(x, y, cel)
     return PackU32LE(0x00000000)
 end
 
-function PackU32LE(value)
+function PackU32LE (value)
     return ("<I4"):pack(value)
 end
 
@@ -549,7 +571,7 @@ end
 ---@param hotSpotX integer
 ---@param hotSpotY integer
 ---@return string
-function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
+function CreateIcoOrCur (targetCels, resourceType, hotSpotX, hotSpotY)
     -- create image data
     local images = {}
     for i, cel in ipairs(targetCels) do
@@ -593,7 +615,7 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
 
         images[i] = {
             color = colorData,
-            mask = maskData
+            mask = maskData,
         }
     end
 
@@ -603,13 +625,9 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
     local fileHeader = {
         resevered = 0,
         resourceType = resourceType,
-        numOfImgs = #targetCels
+        numOfImgs = #targetCels,
     }
-    data = data .. ("<I2<I2<I2"):pack(
-        fileHeader.resevered,
-        fileHeader.resourceType,
-        fileHeader.numOfImgs
-    )
+    data = data .. ("<I2<I2<I2"):pack(fileHeader.resevered, fileHeader.resourceType, fileHeader.numOfImgs)
 
     -- icon header
     -- record offset of icon header to update info later
@@ -623,19 +641,20 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
             hotSpotX = hotSpotX,
             hotSpotY = hotSpotY,
             dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask,
-            dataOffset = 0 -- deside later
+            dataOffset = 0, -- deside later
         }
 
-        data = data .. ("I1I1I1I1<I2<I2<I4<I4"):pack(
-            iconHeader.width,
-            iconHeader.height,
-            iconHeader.numOfColors,
-            iconHeader.resevered,
-            iconHeader.hotSpotX,
-            iconHeader.hotSpotY,
-            iconHeader.dataSize,
-            iconHeader.dataOffset
-        )
+        data = data
+            .. ("I1I1I1I1<I2<I2<I4<I4"):pack(
+                iconHeader.width,
+                iconHeader.height,
+                iconHeader.numOfColors,
+                iconHeader.resevered,
+                iconHeader.hotSpotX,
+                iconHeader.hotSpotY,
+                iconHeader.dataSize,
+                iconHeader.dataOffset
+            )
 
         offsetAddresses[index] = #data - 4
     end
@@ -657,22 +676,23 @@ function CreateIcoOrCur(targetCels, resourceType, hotSpotX, hotSpotY)
             pixelPerMeterX = 0,
             pixelPerMeterY = 0,
             numOfPalettes = 0,
-            numOfImportatntColors = 0
+            numOfImportatntColors = 0,
         }
 
-        data = data .. ("<I4<I4<I4<I2<I2<I4<I4<I4<I4<I4<I4"):pack(
-            bitmapInfoHeader.size,
-            bitmapInfoHeader.width,
-            bitmapInfoHeader.height,
-            bitmapInfoHeader.planes,
-            bitmapInfoHeader.bitsPerPixel,
-            bitmapInfoHeader.compression,
-            bitmapInfoHeader.imageSize,
-            bitmapInfoHeader.pixelPerMeterX,
-            bitmapInfoHeader.pixelPerMeterY,
-            bitmapInfoHeader.numOfPalettes,
-            bitmapInfoHeader.numOfImportatntColors
-        )
+        data = data
+            .. ("<I4<I4<I4<I2<I2<I4<I4<I4<I4<I4<I4"):pack(
+                bitmapInfoHeader.size,
+                bitmapInfoHeader.width,
+                bitmapInfoHeader.height,
+                bitmapInfoHeader.planes,
+                bitmapInfoHeader.bitsPerPixel,
+                bitmapInfoHeader.compression,
+                bitmapInfoHeader.imageSize,
+                bitmapInfoHeader.pixelPerMeterX,
+                bitmapInfoHeader.pixelPerMeterY,
+                bitmapInfoHeader.numOfPalettes,
+                bitmapInfoHeader.numOfImportatntColors
+            )
 
         -- there is no palettes
 
@@ -754,7 +774,7 @@ elseif filetype == "ani" then
     sizeStr = PackU32LE(riffSize)
     fileData = fileData:sub(1, riffSizeIndex) .. sizeStr .. fileData:sub(riffSizeIndex + 5)
 else
-    FailAlert("The format \"" .. filetype "\" is not implemented.")
+    FailAlert('The format "' .. filetype('" is not implemented.'))
     return
 end
 
@@ -771,11 +791,11 @@ sprite:close()
 
 if showCompleated then
     if app.isUIAvailable then
-        app.alert {
+        app.alert({
             title = "Export Finished",
             text = "Successfully exported to " .. filename,
-            buttons = "OK"
-        }
+            buttons = "OK",
+        })
     else
         print("Successfully exported to " .. filename)
     end
