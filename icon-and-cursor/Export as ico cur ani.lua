@@ -50,6 +50,12 @@ if not app then
     return
 end
 
+require("app.iconCursor.init").main()
+
+if true then
+    return
+end
+
 -- shows alert with failure message
 function FailAlert (text)
     if app.isUIAvailable then
@@ -839,6 +845,316 @@ if showCompleated then
         print("Successfully exported to " .. filename)
     end
 end
+
+    end
+}
+
+package.nebluaModule["./app/iconCursor/init.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local params = require("app.iconCursor.parameter")
+
+local function main ()
+    require("app.iconCursor.dialog").createDialog(app.sprite, params.default(app.sprite))
+end
+
+return { main = main }
+
+    end
+}
+
+package.nebluaModule["./app/iconCursor/parameter.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---Parameters for icon/cursor export
+---@class IconCursorParams
+---@field filetype "ico" | "cur" | "ani"
+---@field filename string
+---@field hotSpotX integer
+---@field hotSpotY integer
+---@field framerate integer
+---@field tag string?
+---@field layers "visible" | "selected"
+
+---Creates default parameters for icon/cursor export
+---@param sprite Sprite
+---@return IconCursorParams
+local function default (sprite)
+    local defaultFiletype = "ico"
+    local defaultFilename = app.fs.filePathAndTitle(sprite.filename) .. "." .. defaultFiletype
+    local defaultFramerate = math.floor(sprite.frames[1].duration * 60)
+
+    return {
+        filetype = defaultFiletype,
+        filename = defaultFilename,
+        hotSpotX = 0,
+        hotSpotY = 0,
+        framerate = defaultFramerate,
+        showCompleted = true,
+        tag = nil,
+        layers = "visible",
+    }
+end
+
+---Validates icon/cursor export parameters
+---@param params IconCursorParams
+---@param sprite Sprite
+---@return boolean valid
+---@return string? errorMessage
+local function validate (params, sprite)
+    -- Validate filetype
+    if type(params.filetype) ~= "string" then
+        return false, "filetype must be a string"
+    end
+    if params.filetype ~= "ico" and params.filetype ~= "cur" and params.filetype ~= "ani" then
+        return false, "filetype must be 'ico', 'cur', or 'ani'"
+    end
+
+    -- Validate filename
+    if type(params.filename) ~= "string" then
+        return false, "filename must be a string"
+    end
+    if params.filename == "" then
+        return false, "filename cannot be empty"
+    end
+
+    -- Validate hotSpotX
+    if type(params.hotSpotX) ~= "number" then
+        return false, "hotSpotX must be a number"
+    end
+    if params.hotSpotX ~= math.floor(params.hotSpotX) then
+        return false, "hotSpotX must be an integer"
+    end
+    if params.hotSpotX < 0 then
+        return false, "hotSpotX must be >= 0"
+    end
+    if params.hotSpotX >= sprite.width then
+        return false, "hotSpotX must be < sprite width (" .. sprite.width .. ")"
+    end
+
+    -- Validate hotSpotY
+    if type(params.hotSpotY) ~= "number" then
+        return false, "hotSpotY must be a number"
+    end
+    if params.hotSpotY ~= math.floor(params.hotSpotY) then
+        return false, "hotSpotY must be an integer"
+    end
+    if params.hotSpotY < 0 then
+        return false, "hotSpotY must be >= 0"
+    end
+    if params.hotSpotY >= sprite.height then
+        return false, "hotSpotY must be < sprite height (" .. sprite.height .. ")"
+    end
+
+    -- Validate framerate
+    if type(params.framerate) ~= "number" then
+        return false, "framerate must be a number"
+    end
+    if params.framerate ~= math.floor(params.framerate) then
+        return false, "framerate must be an integer"
+    end
+    if params.framerate < 1 then
+        return false, "framerate must be >= 1"
+    end
+
+    -- Validate tag (nil means all frames, string means specific tag)
+    if params.tag ~= nil then
+        if type(params.tag) ~= "string" then
+            return false, "tag must be a string or nil"
+        end
+        if params.tag == "" then
+            return false, "tag cannot be empty string"
+        end
+        -- Validate it's a valid tag name
+        local tagFound = false
+        for _, tag in ipairs(sprite.tags) do
+            if tag.name == params.tag then
+                tagFound = true
+                break
+            end
+        end
+        if not tagFound then
+            return false, "tag must be nil or a valid tag name"
+        end
+    end
+
+    -- Validate layers
+    if type(params.layers) ~= "string" then
+        return false, "layers must be a string"
+    end
+    if params.layers ~= "visible" and params.layers ~= "selected" then
+        return false, "layers must be 'visible' or 'selected'"
+    end
+
+    return true, nil
+end
+
+return {
+    default = default,
+    validate = validate,
+}
+
+    end
+}
+
+package.nebluaModule["./app/iconCursor/dialog.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local parameter = require("app.iconCursor.parameter")
+
+local TAG_PREFIX = "Tag: "
+local ALL_FRAMES_LABEL = "All Frames"
+
+---Creates and shows the icon/cursor export dialog
+---@param sprite Sprite
+---@return IconCursorParams? params Returns nil if cancelled
+local function createDialog (sprite)
+    local fileType = "ico"
+    local initialFilename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
+
+    -- Build tag options list
+    local tagOptions = { ALL_FRAMES_LABEL }
+    for _, tag in ipairs(sprite.tags) do
+        table.insert(tagOptions, TAG_PREFIX .. tag.name)
+    end
+
+    local dialog = Dialog("Export Icon/Cursor")
+    if dialog == nil then
+        error("Failed to create dialog, UI may not be available")
+    end
+
+    -- Update field visibility based on selected file type
+    local function updateVisibility ()
+        local isCursor = fileType == "cur" or fileType == "ani"
+        local isAnimated = fileType == "ani"
+
+        dialog:modify({ id = "hotspotX", visible = isCursor })
+        dialog:modify({ id = "hotspotY", visible = isCursor })
+        dialog:modify({ id = "framerate", visible = isAnimated })
+    end
+
+    -- Update filename extension to match selected file type
+    local function updateFilenameExtension ()
+        local currentFilename = dialog.data.filename
+        if type(currentFilename) == "string" then
+            local baseFilename = app.fs.filePathAndTitle(currentFilename)
+            local newFilename = baseFilename .. "." .. fileType
+            dialog:modify({ id = "filename", filename = newFilename })
+        end
+    end
+
+    dialog
+        :combobox({
+            id = "filetype",
+            label = "File Type",
+            option = "ICO",
+            options = { "ICO", "CUR", "ANI" },
+            onchange = function ()
+                local selected = dialog.data.filetype --[[@as string]]
+                if selected then
+                    fileType = selected:lower()
+                    updateVisibility()
+                    updateFilenameExtension()
+                end
+            end,
+        })
+        :combobox({
+            id = "layers",
+            label = "Layers",
+            option = "Visible",
+            options = { "Visible", "Selected" },
+        })
+        :combobox({
+            id = "tag",
+            label = "Frames",
+            option = ALL_FRAMES_LABEL,
+            options = tagOptions,
+        })
+        :number({
+            id = "framerate",
+            label = "Framerate (1/60s)",
+            text = tostring(math.floor(sprite.frames[1].duration * 60)),
+        })
+        :number({
+            id = "hotspotX",
+            label = "Hot Spot",
+            text = "0",
+            decimals = 0,
+        })
+        :number({
+            id = "hotspotY",
+            text = "0",
+            decimals = 0,
+        })
+        :separator({ text = "Output" })
+        :file({
+            id = "filename",
+            label = "Filename",
+            title = "Export as...",
+            save = true,
+            filename = initialFilename,
+            filetypes = { "ico", "cur", "ani" },
+        })
+        -- Buttons
+        :button({
+            id = "ok",
+            text = "&Export",
+            focus = true,
+        })
+        :button({
+            id = "cancel",
+            text = "&Cancel",
+        })
+
+    updateVisibility()
+    dialog:show()
+
+    -- Check if cancelled
+    if not dialog.data.ok then
+        return nil
+    end
+
+    -- Parse layers option
+    local layers = "visible"
+    if dialog.data.layers == "Selected" then
+        layers = "selected"
+    end
+
+    -- Parse tag option
+    local tag = nil
+    if dialog.data.tag ~= ALL_FRAMES_LABEL then
+        -- Extract tag name from "Tag: {name}" prefix
+        tag = (dialog.data.tag --[[@as string]]):sub(#TAG_PREFIX + 1)
+    end
+
+    -- Build params table
+    local params = {
+        filetype = fileType,
+        filename = dialog.data.filename,
+        hotSpotX = dialog.data.hotspotX,
+        hotSpotY = dialog.data.hotspotY,
+        framerate = dialog.data.framerate,
+        tag = tag,
+        layers = layers,
+    }
+
+    -- Validate params
+    local valid, validationError = parameter.validate(params, sprite)
+    if not valid then
+        app.alert({
+            title = "Invalid Parameters",
+            text = validationError or "Unknown validation error",
+            buttons = "OK",
+        })
+        return nil
+    end
+
+    return params --[[@as IconCursorParams]]
+end
+
+return {
+    createDialog = createDialog,
+}
 
     end
 }
