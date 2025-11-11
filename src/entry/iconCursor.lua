@@ -11,6 +11,12 @@ if not app then
     return
 end
 
+require("app.iconCursor.init").main()
+
+if true then
+    return
+end
+
 -- shows alert with failure message
 function FailAlert (text)
     if app.isUIAvailable then
