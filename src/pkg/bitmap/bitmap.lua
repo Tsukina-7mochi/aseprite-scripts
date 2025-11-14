@@ -6,10 +6,12 @@ local pack = require("pkg.string.pack")
 ---@param fileSize integer Total file size in bytes
 ---@return string Binary header data
 local function createFileHeader (fileSize)
-    return "BM" -- Signature
-        .. pack.u32LE(fileSize) -- File size
-        .. pack.u32LE(0) -- Reserved
-        .. pack.u32LE(54) -- Data offset (14 + 40)
+    return table.concat({
+        "BM", -- Signature
+        pack.u32LE(fileSize), -- File size
+        pack.u32LE(0), -- Reserved
+        pack.u32LE(54), -- Data offset (14 + 40)
+    })
 end
 
 ---Generates bitmap info header (40 bytes)
@@ -17,17 +19,19 @@ end
 ---@param height integer Image height in pixels
 ---@return string Binary header data
 local function createInfoHeader (width, height)
-    return pack.u32LE(40) -- Header size
-        .. pack.i32LE(width) -- Image width
-        .. pack.i32LE(height) -- Image height
-        .. pack.u16LE(1) -- Planes (always 1)
-        .. pack.u16LE(24) -- Bits per pixel
-        .. pack.u32LE(0) -- Compression (0 = uncompressed)
-        .. pack.u32LE(0) -- Image size (0 is valid for uncompressed)
-        .. pack.i32LE(0) -- X pixels per meter (0 = not specified)
-        .. pack.i32LE(0) -- Y pixels per meter (0 = not specified)
-        .. pack.u32LE(0) -- Colors used (0 = all colors)
-        .. pack.u32LE(0) -- Important colors (0 = all important)
+    return table.concat({
+        pack.u32LE(40), -- Header size
+        pack.i32LE(width), -- Image width
+        pack.i32LE(height), -- Image height
+        pack.u16LE(1), -- Planes (always 1)
+        pack.u16LE(24), -- Bits per pixel
+        pack.u32LE(0), -- Compression (0 = uncompressed)
+        pack.u32LE(0), -- Image size (0 is valid for uncompressed)
+        pack.i32LE(0), -- X pixels per meter (0 = not specified)
+        pack.i32LE(0), -- Y pixels per meter (0 = not specified)
+        pack.u32LE(0), -- Colors used (0 = all colors)
+        pack.u32LE(0), -- Important colors (0 = all important)
+    })
 end
 
 ---Encodes image pixels to BMP format
@@ -65,42 +69,49 @@ local function encodePixels (image)
     return table.concat(rows)
 end
 
----@class Bitmap
----@field image Image
----@overload fun(image: Image): Bitmap
-local bitmap = {}
+---@class BitmapFile
+---@field fileHeader string BMP file header (14 bytes)
+---@field bitmapInfoHeader string Bitmap info header (40 bytes)
+---@field pixelData string Binary pixel data
+local BitmapFile = {}
 
----Converts the bitmap to a binary string
+---Converts the bitmap file to a binary string
 ---@return string
-function bitmap.tostring (self)
-    local image = self.image
+function BitmapFile.tostring (self)
+    return table.concat({
+        self.fileHeader,
+        self.bitmapInfoHeader,
+        self.pixelData,
+    })
+end
+
+---Creates a BitmapFile from an Aseprite Image
+---@param image Image Aseprite RGB Image object
+---@return BitmapFile
+local function createBitmap (image)
+    -- Validate color mode
+    if image.colorMode ~= ColorMode.RGB then
+        error("Only RGB images are supported for BMP export")
+    end
 
     -- Calculate sizes
     local rowSize = image.width * 3 + ((4 - (image.width * 3) % 4) % 4)
     local pixelDataSize = rowSize * image.height
     local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
 
-    -- Generate BMP file
-    return createFileHeader(fileSize)
-        .. createInfoHeader(image.width, image.height)
-        .. encodePixels(image)
+    -- Generate BMP components
+    local fileHeader = createFileHeader(fileSize)
+    local bitmapInfoHeader = createInfoHeader(image.width, image.height)
+    local pixelData = encodePixels(image)
+
+    local value = {
+        fileHeader = fileHeader,
+        bitmapInfoHeader = bitmapInfoHeader,
+        pixelData = pixelData,
+    }
+    setmetatable(value, { __index = BitmapFile, __tostring = BitmapFile.tostring })
+
+    return value
 end
 
-setmetatable(bitmap --[[ @as unknown ]], {
-    ---@param image Image
-    __call = function (_, image)
-        -- Validate color mode
-        if image.colorMode ~= ColorMode.RGB then
-            error("Only RGB images are supported for BMP export")
-        end
-
-        local value = {
-            image = image,
-        }
-        setmetatable(value, { __index = bitmap, __tostring = bitmap.tostring })
-
-        return value
-    end,
-})
-
-return bitmap
+return { create = createBitmap }

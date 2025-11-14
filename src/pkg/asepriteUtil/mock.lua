@@ -19,7 +19,7 @@ local pixelColor = {
     ---@return integer
     rgba = function (r, g, b, a)
         a = a or 255
-        return ("<I4"):unpack(("<BBBB"):pack(r, g, b, a))
+        return r | (g << 8) | (b << 16) | (a << 24)
     end,
 
     ---Extracts red component from RGBA pixel
