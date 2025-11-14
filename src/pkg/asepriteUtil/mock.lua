@@ -1,5 +1,4 @@
 ---Mock implementations of Aseprite APIs for testing
----@module 'pkg.asepriteUtil.mock'
 
 ---Mock ColorMode enum
 ---@class ColorMode
