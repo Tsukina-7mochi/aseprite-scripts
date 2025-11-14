@@ -66,14 +66,15 @@ local function encodePixels (image)
     return table.concat(rows)
 end
 
----Creates a 24-bit BMP file from an Aseprite Image
----@param image Image Aseprite RGB Image object
----@return string Binary BMP file data
-local function create (image)
-    -- Validate color mode
-    if image.colorMode ~= ColorMode.RGB then
-        error("Only RGB images are supported for BMP export")
-    end
+---@class Bitmap
+---@field image Image
+---@overload fun(image: Image): Bitmap
+local bitmap = {}
+
+---Converts the bitmap to a binary string
+---@return string
+function bitmap.tostring (self)
+    local image = self.image
 
     -- Calculate sizes
     local rowSize = image.width * 3 + ((4 - (image.width * 3) % 4) % 4)
@@ -86,6 +87,21 @@ local function create (image)
         .. encodePixels(image)
 end
 
-return {
-    create = create,
-}
+setmetatable(bitmap --[[ @as unknown ]], {
+    ---@param image Image
+    __call = function (_, image)
+        -- Validate color mode
+        if image.colorMode ~= ColorMode.RGB then
+            error("Only RGB images are supported for BMP export")
+        end
+
+        local value = {
+            image = image,
+        }
+        setmetatable(value, { __index = bitmap, __tostring = bitmap.tostring })
+
+        return value
+    end,
+})
+
+return { bitmap = bitmap }

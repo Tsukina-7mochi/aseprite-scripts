@@ -7,16 +7,16 @@ local mock = require("pkg.asepriteUtil.mock")
 _G.ColorMode = mock.ColorMode
 _G.app = mock.app
 
-local bitmap = require("pkg.bitmap")
+local bitmap = require("pkg.bitmap").bitmap
 
 describe("bitmap", function ()
-    describe("create", function ()
+    describe("bitmap constructor", function ()
         test("creates valid BMP file header", function ()
             local pixels = {
                 mock.app.pixelColor.rgba(255, 0, 0), -- Red
             }
             local image = mock.createImage(1, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- Check BMP signature
             expect(bmp:sub(1, 2)):toBe("BM")
@@ -33,7 +33,7 @@ describe("bitmap", function ()
         test("creates valid bitmap info header", function ()
             local pixels = { mock.app.pixelColor.rgba(0, 0, 0) }
             local image = mock.createImage(1, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- Info header starts at byte 15
             local headerSize = string.unpack("<I4", bmp:sub(15, 18))
@@ -58,7 +58,7 @@ describe("bitmap", function ()
                 mock.app.pixelColor.rgba(255, 0, 0),
             }
             local image = mock.createImage(1, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- Pixel data starts at byte 55 (after 54-byte header)
             -- BGR order: B=0, G=0, R=255
@@ -70,7 +70,7 @@ describe("bitmap", function ()
         test("adds correct row padding for width=1", function ()
             local pixels = { mock.app.pixelColor.rgba(0, 0, 0) }
             local image = mock.createImage(1, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- 1 pixel = 3 bytes, needs 1 byte padding to reach 4
             -- Pixel data: 3 bytes + 1 padding = 4 bytes total
@@ -84,7 +84,7 @@ describe("bitmap", function ()
                 mock.app.pixelColor.rgba(0, 0, 0),
             }
             local image = mock.createImage(2, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- 2 pixels = 6 bytes, needs 2 bytes padding to reach 8
             expect(#bmp):toBe(54 + 8)
@@ -98,7 +98,7 @@ describe("bitmap", function ()
                 mock.app.pixelColor.rgba(0, 0, 0),
             }
             local image = mock.createImage(4, 1, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- 4 pixels = 12 bytes, already aligned to 4, no padding needed
             expect(#bmp):toBe(54 + 12)
@@ -115,7 +115,7 @@ describe("bitmap", function ()
                 mock.app.pixelColor.rgba(255, 255, 255), -- Bottom-right: White
             }
             local image = mock.createImage(2, 2, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- Pixel data starts at byte 55
             -- First row in BMP should be bottom row (y=1): Blue, White
@@ -149,7 +149,7 @@ describe("bitmap", function ()
                 pixels[i] = mock.app.pixelColor.rgba(0, 0, 0)
             end
             local image = mock.createImage(3, 3, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- 3 pixels per row = 9 bytes, needs 3 bytes padding to reach 12
             -- Total pixel data = (9 + 3) * 3 rows = 36 bytes
@@ -167,7 +167,7 @@ describe("bitmap", function ()
             }
 
             local success, err = pcall(function ()
-                bitmap.create(image)
+                bitmap(image)
             end)
 
             expect(success):toBe(false)
@@ -183,11 +183,28 @@ describe("bitmap", function ()
                 mock.app.pixelColor.rgba(255, 255, 0), -- Yellow
             }
             local image = mock.createImage(2, 2, pixels)
-            local bmp = bitmap.create(image)
+            local bmp = tostring(bitmap(image))
 
             -- Verify it's a complete BMP file
             expect(bmp:sub(1, 2)):toBe("BM")
             expect(#bmp):toBe(54 + 16) -- Header + (6 bytes pixels + 2 padding) * 2 rows
+        end)
+
+        test("tostring method works", function ()
+            local pixels = { mock.app.pixelColor.rgba(0, 0, 0) }
+            local image = mock.createImage(1, 1, pixels)
+            local bmp = bitmap(image)
+
+            -- Test explicit tostring method
+            local str1 = bmp:tostring()
+            expect(str1:sub(1, 2)):toBe("BM")
+
+            -- Test implicit __tostring metamethod
+            local str2 = tostring(bmp)
+            expect(str2:sub(1, 2)):toBe("BM")
+
+            -- Both should produce the same result
+            expect(str1):toBe(str2)
         end)
     end)
 end)
