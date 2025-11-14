@@ -1,5 +1,4 @@
 ---Bitmap class for encoding 24-bit RGB images to BMP format
----@module 'pkg.bitmap.bitmap'
 
 local pack = require("pkg.string.pack")
 
