@@ -1,8 +1,6 @@
----Bitmap class for encoding 24-bit RGB images to BMP format
-
 local pack = require("pkg.string.pack")
 
----Generates BMP file header (14 bytes)
+---Generates BMP file header
 ---@param fileSize integer Total file size in bytes
 ---@return string Binary header data
 local function createFileHeader (fileSize)
@@ -14,11 +12,11 @@ local function createFileHeader (fileSize)
     })
 end
 
----Generates bitmap info header (40 bytes)
+---Generates bitmap info header
 ---@param width integer Image width in pixels
 ---@param height integer Image height in pixels
 ---@return string Binary header data
-local function createInfoHeader (width, height)
+local function createBitmapInfoHeader (width, height)
     return table.concat({
         pack.u32LE(40), -- Header size
         pack.i32LE(width), -- Image width
@@ -44,24 +42,21 @@ local function encodePixels (image)
     local padding = (4 - (width * 3) % 4) % 4
     local rows = {}
 
-    -- Process rows from bottom to top (BMP stores rows bottom-to-top)
+    -- Process rows from bottom to top
     for y = height - 1, 0, -1 do
         local row = {}
 
-        -- Process each pixel in the row
         for x = 0, width - 1 do
             local pixel = image:getPixel(x, y)
 
-            -- Store as BGR (not RGB!)
+            -- Store as BGR
             table.insert(row, pack.u8(app.pixelColor.rgbaB(pixel)))
             table.insert(row, pack.u8(app.pixelColor.rgbaG(pixel)))
             table.insert(row, pack.u8(app.pixelColor.rgbaR(pixel)))
         end
 
         -- Add padding bytes to align row to 4-byte boundary
-        for i = 1, padding do
-            table.insert(row, "\x00")
-        end
+        table.insert(row, ("\x00"):rep(padding))
 
         table.insert(rows, table.concat(row))
     end
@@ -89,7 +84,6 @@ end
 ---@param image Image Aseprite RGB Image object
 ---@return BitmapFile
 local function createBitmap (image)
-    -- Validate color mode
     if image.colorMode ~= ColorMode.RGB then
         error("Only RGB images are supported for BMP export")
     end
@@ -101,7 +95,7 @@ local function createBitmap (image)
 
     -- Generate BMP components
     local fileHeader = createFileHeader(fileSize)
-    local bitmapInfoHeader = createInfoHeader(image.width, image.height)
+    local bitmapInfoHeader = createBitmapInfoHeader(image.width, image.height)
     local pixelData = encodePixels(image)
 
     local value = {
