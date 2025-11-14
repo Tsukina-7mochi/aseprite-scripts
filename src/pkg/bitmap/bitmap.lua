@@ -24,8 +24,8 @@ local function createInfoHeader (width, height)
         .. pack.u16LE(24) -- Bits per pixel
         .. pack.u32LE(0) -- Compression (0 = uncompressed)
         .. pack.u32LE(0) -- Image size (0 is valid for uncompressed)
-        .. pack.i32LE(2835) -- X pixels per meter (~72 DPI)
-        .. pack.i32LE(2835) -- Y pixels per meter (~72 DPI)
+        .. pack.i32LE(0) -- X pixels per meter (0 = not specified)
+        .. pack.i32LE(0) -- Y pixels per meter (0 = not specified)
         .. pack.u32LE(0) -- Colors used (0 = all colors)
         .. pack.u32LE(0) -- Important colors (0 = all important)
 end
