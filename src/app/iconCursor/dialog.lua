@@ -1,4 +1,5 @@
 local parameter = require("app.iconCursor.parameter")
+local util = require("pkg.asepriteUtil")
 
 local TAG_PREFIX = "Tag: "
 local ALL_FRAMES_LABEL = "All Frames"
@@ -139,10 +140,9 @@ local function show (sprite)
     -- Validate params
     local valid, validationError = parameter.validate(params, sprite)
     if not valid then
-        app.alert({
+        util.alert({
             title = "Invalid Parameters",
             text = validationError or "Unknown validation error",
-            buttons = "OK",
         })
         return nil
     end
