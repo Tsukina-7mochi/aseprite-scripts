@@ -1,4 +1,4 @@
-local isInteger = require("pkg.number.isInteger")
+local isInteger = require("pkg.type.isType").isInteger
 
 ---@alias AlertInit { title?: string, text: string | string[], buttons?: string[] }
 

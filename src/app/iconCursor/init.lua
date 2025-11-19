@@ -1,4 +1,5 @@
 local dialog = require("app.iconCursor.dialog")
+local createIcon = require("app.iconCursor.icon").create
 local util = require("pkg.asepriteUtil")
 
 local function main ()
@@ -38,6 +39,18 @@ local function main ()
 
         targetFrames = util.tag.getFrames(tag)
     end
+
+    local fileData = createIcon(params, targetLayers, targetFrames)
+
+    local file = io.open(params.filename, "wb")
+    if not file then
+        util.alert({ text = "Failed to open the file to export." })
+        return
+    end
+
+    file:write(fileData)
+
+    file:close()
 end
 
 return { main = main }
