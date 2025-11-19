@@ -65,6 +65,60 @@ local function encodePixels (image)
     return table.concat(rows)
 end
 
+---Encodes image alpha pixels to BMP 1-bit image data
+---Converts RGB to BGR, processes bottom-to-top, adds row padding
+---@param image Image Aseprite Image object
+---@return string Binary pixel data
+local function encodeAlphaMask (image)
+    local width = image.width
+    local height = image.height
+
+    -- Calculate row padding to align to 4-byte boundary
+    local bitsPerRow = width
+    local bytesPerRow = math.ceil(bitsPerRow / 8)
+    local padding = (4 - (bytesPerRow % 4)) % 4
+
+    local maskData = ""
+
+    -- Process rows from bottom to top (BMP format)
+    for y = height - 1, 0, -1 do
+        local mask = 0
+        local bitCount = 0
+
+        -- Process pixels from left to right
+        for x = 0, width - 1 do
+            local pixel = image:getPixel(x, y)
+            local alpha = app.pixelColor.rgbaA(pixel)
+
+            -- Set bit to 1 if pixel is transparent (alpha == 0)
+            local transparentBit = (alpha == 0) and 1 or 0
+
+            -- Pack bit into current byte (MSB first)
+            mask = (mask << 1) | transparentBit
+            bitCount = bitCount + 1
+
+            -- When we've packed 8 bits, write the byte
+            if bitCount == 8 then
+                maskData = maskData .. pack.u8(mask)
+                mask = 0
+                bitCount = 0
+            end
+        end
+
+        -- Handle remaining bits in the row (if width is not multiple of 8)
+        if bitCount ~= 0 then
+            -- Shift remaining bits to MSB position
+            mask = mask << (8 - bitCount)
+            maskData = maskData .. pack.u8(mask)
+        end
+
+        -- Add padding bytes to align row to 4-byte boundary
+        maskData = maskData .. ("\x00"):rep(padding)
+    end
+
+    return maskData
+end
+
 ---Creates a BitmapFile from an Aseprite Image
 ---@param image Image Aseprite RGB Image object
 ---@return BitmapFile
@@ -79,7 +133,34 @@ local function create (image)
     local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
 
     -- Generate BMP components
-    return BitmapFile(createFileHeader(fileSize), createInfoHeader(image.width, image.height), encodePixels(image))
+    local fileHeader = createFileHeader(fileSize)
+    local infoHeader = createInfoHeader(image.width, image.height)
+    local pixelData = encodePixels(image)
+    return BitmapFile(fileHeader, infoHeader, pixelData)
 end
 
-return { create = create }
+---Creates a BitmapFile with alpha mask from an Aseprite Image
+---@param image Image Aseprite RGB Image object
+local function createWithAlphaMask (image)
+    if image.colorMode ~= ColorMode.RGB then
+        error("Only RGB images are supported for BMP export")
+    end
+
+    -- Calculate sizes
+    local rowSize = image.width * 3 + ((4 - (image.width * 3) % 4) % 4)
+    local pixelDataSize = rowSize * image.height
+    local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
+
+    -- Generate BMP components
+    -- double the height for alpha mask
+    local fileHeader = createFileHeader(fileSize)
+    local infoHeader = createInfoHeader(image.width, image.height * 2)
+    local pixelData = encodePixels(image)
+    local alphaMaskData = encodeAlphaMask(image)
+    return BitmapFile(fileHeader, infoHeader, pixelData .. alphaMaskData)
+end
+
+return {
+    create = create,
+    createWithAlphaMask = createWithAlphaMask,
+}

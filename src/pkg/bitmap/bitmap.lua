@@ -8,13 +8,15 @@ local BitmapFile = {}
 ---Converts the bitmap file to a binary string
 ---@param bitmap BitmapFile
 ---@return string
-function tostring (bitmap)
+local function tostring (bitmap)
     return table.concat({
         bitmap.fileHeader,
         bitmap.infoHeader,
         bitmap.pixelData,
     })
 end
+
+BitmapFile.tostring = tostring
 
 setmetatable(BitmapFile --[[ @as table ]], {
     __call = function (_, fileHeader, infoHeader, pixelData)

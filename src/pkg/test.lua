@@ -16,4 +16,8 @@ describe("pkg", function ()
     describe("riff", function ()
         require("pkg.riff.riff_test")
     end)
+
+    describe("bitmap", function ()
+        require("pkg.bitmap.bitmap_test")
+    end)
 end)
