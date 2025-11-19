@@ -1,4 +1,5 @@
 local pack = require("pkg.string.pack")
+local BitmapFile = require("pkg.bitmap.bitmap").BitmapFile
 
 ---Generates BMP file header
 ---@param fileSize integer Total file size in bytes
@@ -16,7 +17,7 @@ end
 ---@param width integer Image width in pixels
 ---@param height integer Image height in pixels
 ---@return string Binary header data
-local function createBitmapInfoHeader (width, height)
+local function createInfoHeader (width, height)
     return table.concat({
         pack.u32LE(40), -- Header size
         pack.i32LE(width), -- Image width
@@ -64,26 +65,10 @@ local function encodePixels (image)
     return table.concat(rows)
 end
 
----@class BitmapFile
----@field fileHeader string BMP file header (14 bytes)
----@field bitmapInfoHeader string Bitmap info header (40 bytes)
----@field pixelData string Binary pixel data
-local BitmapFile = {}
-
----Converts the bitmap file to a binary string
----@return string
-function BitmapFile.tostring (self)
-    return table.concat({
-        self.fileHeader,
-        self.bitmapInfoHeader,
-        self.pixelData,
-    })
-end
-
 ---Creates a BitmapFile from an Aseprite Image
 ---@param image Image Aseprite RGB Image object
 ---@return BitmapFile
-local function createBitmap (image)
+local function create (image)
     if image.colorMode ~= ColorMode.RGB then
         error("Only RGB images are supported for BMP export")
     end
@@ -94,18 +79,7 @@ local function createBitmap (image)
     local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
 
     -- Generate BMP components
-    local fileHeader = createFileHeader(fileSize)
-    local bitmapInfoHeader = createBitmapInfoHeader(image.width, image.height)
-    local pixelData = encodePixels(image)
-
-    local value = {
-        fileHeader = fileHeader,
-        bitmapInfoHeader = bitmapInfoHeader,
-        pixelData = pixelData,
-    }
-    setmetatable(value, { __index = BitmapFile, __tostring = BitmapFile.tostring })
-
-    return value
+    return BitmapFile(createFileHeader(fileSize), createInfoHeader(image.width, image.height), encodePixels(image))
 end
 
-return { create = createBitmap }
+return { create = create }
