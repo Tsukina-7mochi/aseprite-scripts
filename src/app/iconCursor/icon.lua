@@ -42,6 +42,7 @@ end
 ---@param params IconCursorParams
 ---@param targetLayers Layer[]
 ---@param targetFrames Frame[]
+---@return string
 local function createIcon (params, targetLayers, targetFrames)
     local images = {}
     for _, frame in ipairs(targetFrames) do
@@ -79,8 +80,8 @@ local function createIcon (params, targetLayers, targetFrames)
 
     return table.concat({
         fileHeader,
-        table.unpack(iconHeaders),
-        table.unpack(imageData),
+        table.concat(iconHeaders),
+        table.concat(imageData),
     }, "")
 end
 

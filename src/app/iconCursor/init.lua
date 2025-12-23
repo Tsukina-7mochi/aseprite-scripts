@@ -1,5 +1,6 @@
 local dialog = require("app.iconCursor.dialog")
 local createIcon = require("app.iconCursor.icon").create
+local createAnimCursor = require("app.iconCursor.anim-cursor").create
 local util = require("pkg.asepriteUtil")
 
 local function main ()
@@ -40,7 +41,12 @@ local function main ()
         targetFrames = util.tag.getFrames(tag)
     end
 
-    local fileData = createIcon(params, targetLayers, targetFrames)
+    local fileData = ""
+    if params.filetype == "ani" then
+        fileData = createAnimCursor(params, targetLayers, targetFrames)
+    else
+        fileData = createIcon(params, targetLayers, targetFrames)
+    end
 
     local file = io.open(params.filename, "wb")
     if not file then
