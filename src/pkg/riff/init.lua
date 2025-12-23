@@ -1,48 +1,58 @@
----@alias Payload (string | Chunk)[]
-
----@class Chunk
+---@class RiffChunk
 ---@field id string
----@field payload Payload
----@overload fun(id: string, payload: Payload | string): Chunk
-local chunk = {}
+---@field data string
+local __chunk = {}
 
----@return string
-function chunk.tostring (self)
-    ---@type string[]
-    local payload = {}
-    local size = 0
-    for _, v in ipairs(self.payload) do
-        if type(v) ~= "string" then
-            v = v:tostring()
+local __chunkMeta = {
+    ---@param self RiffChunk
+    __tostring = function (self)
+        local padding = ""
+        if #self.data % 2 == 1 then
+            padding = "\0"
         end
-        table.insert(payload, v)
-        size = size + #v
-    end
+        return ("c4<I4"):pack(self.id, #self.data) .. self.data .. padding
+    end,
+}
 
-    local padding = ""
-    if size % 2 == 1 then
-        padding = "\0"
-    end
-
-    return ("c4<I4"):pack(self.id, size) .. table.concat(payload) .. padding
+---@param id string
+---@param data string
+---@return RiffChunk
+local function chunk (id, data)
+    local obj = { id = id, data = data }
+    setmetatable(obj, __chunkMeta)
+    return obj
 end
 
-setmetatable(chunk --[[ @as unknown ]], {
-    ---@param id string
-    ---@param payload Payload | string
-    __call = function (_, id, payload)
-        if type(payload) == "string" then
-            payload = { payload }
+---@param identifier string
+---@param data RiffChunk | RiffChunk[]
+---@return RiffChunk
+local function riffChunk (identifier, data)
+    if type(data) == "table" and #data > 0 then
+        local payloads = {}
+        for _, d in ipairs(data) do
+            table.insert(payloads, tostring(d))
         end
 
-        local value = {
-            id = id,
-            payload = payload,
-        }
-        setmetatable(value, { __index = chunk })
+        return chunk("RIFF", identifier .. table.concat(payloads))
+    end
 
-        return value
-    end,
-})
+    return chunk("RIFF", identifier .. tostring(data))
+end
 
-return { chunk = chunk }
+---@param identifier string
+---@param items RiffChunk[]
+---@return RiffChunk
+local function listChunk (identifier, items)
+    local itemsStr = {}
+    for _, item in ipairs(items) do
+        table.insert(itemsStr, tostring(item))
+    end
+
+    return chunk("LIST", identifier .. table.concat(itemsStr))
+end
+
+return {
+    chunk = chunk,
+    riffChunk = riffChunk,
+    listChunk = listChunk,
+}
