@@ -1,7 +1,20 @@
 local dialog = require("app.iconCursor.dialog")
+local parameter = require("app.iconCursor.parameter")
 local createIcon = require("app.iconCursor.icon").create
 local createAnimCursor = require("app.iconCursor.anim-cursor").create
 local util = require("pkg.asepriteUtil")
+
+local function getParams ()
+    if app.isUIAvailable then
+        return dialog.show(app.sprite)
+    else
+        local valid, validationError = parameter.validate(app.params, app.sprite)
+        if not valid then
+            error("Error: " .. (validationError or "Unknown validation error"))
+        end
+        return app.params
+    end
+end
 
 local function main ()
     if app.apiVersion < 1 then
@@ -15,9 +28,8 @@ local function main ()
         return
     end
 
-    local params = dialog.show(sprite)
+    local params = getParams()
     if params == nil then
-        -- canceled or validation error
         return
     end
 
