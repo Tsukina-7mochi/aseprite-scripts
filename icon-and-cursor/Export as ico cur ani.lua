@@ -156,6 +156,10 @@ local function main ()
     file:write(fileData)
 
     file:close()
+
+    if app.isUIAvailable and params.showCompleted then
+        util.alert({ title = "Export Complete", text = "Exported to " .. params.filename })
+    end
 end
 
 return { main = main }
@@ -193,6 +197,7 @@ local ID = {
     filename = "filename",
     ok = "ok",
     cancel = "cancel",
+    showCompleted = "showCompleted",
 }
 
 ---@param options { option: string, value: any }[]
@@ -286,17 +291,17 @@ local function show (sprite)
         :number({
             id = ID.framerate,
             label = "Framerate (1/60s)",
-            text = tostring(savedData[ID.framerate]) or tostring(defaultFramerate),
+            text = tostring(savedData[ID.framerate] or defaultFramerate),
         })
         :number({
             id = ID.hotspotX,
             label = "Hot Spot",
-            text = tostring(savedData[ID.hotspotX]) or "0",
+            text = tostring(savedData[ID.hotspotX] or "0"),
             decimals = 0,
         })
         :number({
             id = ID.hotspotY,
-            text = tostring(savedData[ID.hotspotY]) or "0",
+            text = tostring(savedData[ID.hotspotY] or "0"),
             decimals = 0,
         })
         :separator({ text = "Output" })
@@ -306,6 +311,11 @@ local function show (sprite)
             title = "Export as...",
             save = true,
             filename = savedData[ID.filename] or defaultFilename,
+        })
+        :check({
+            id = ID.showCompleted,
+            text = "Show completion dialog",
+            selected = savedData[ID.showCompleted] ~= false,
         })
         -- Buttons
         :button({ id = ID.ok, text = "&Export", focus = true })
@@ -329,6 +339,7 @@ local function show (sprite)
             framerate = dialog.data.framerate or 1,
             tag = getOptionEntry(tagOptions, dialog.data.tag).value,
             layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
+            showCompleted = dialog.data.showCompleted,
         }
 
         -- Validate params
@@ -364,6 +375,7 @@ package.nebluaModule["./app/iconCursor/parameter.lua"] = {
 ---@field framerate integer
 ---@field tag string | integer | nil
 ---@field layers "visible" | "selected"
+---@field showCompleted boolean
 
 ---Creates default parameters for icon/cursor export
 ---@param sprite Sprite
@@ -379,9 +391,9 @@ local function default (sprite)
         hotSpotX = 0,
         hotSpotY = 0,
         framerate = defaultFramerate,
-        showCompleted = true,
         tag = nil,
         layers = "visible",
+        showCompleted = true,
     }
 end
 
@@ -483,6 +495,11 @@ local function validate (params, sprite)
     end
     if params.layers ~= "visible" and params.layers ~= "selected" then
         return false, "layers must be 'visible' or 'selected'"
+    end
+
+    -- Validate showCompleted
+    if type(params.showCompleted) ~= "boolean" then
+        return false, "showCompleted must be a boolean"
     end
 
     return true, nil
