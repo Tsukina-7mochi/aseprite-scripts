@@ -6,28 +6,25 @@
     local function snapshot(target)
         local addedKeys = {}
         setmetatable(target, {
-            __index = function(t, k)
-                if k == "__unload" then
-                    return function()
-                        for _, k in ipairs(addedKeys) do
-                            rawset(t, k, nil)
-                        end
-                    end
-                end
-
-                return rawget(t, k)
-            end,
             __newindex = function (t, k, v)
                 table.insert(addedKeys, k)
                 rawset(t, k, v)
             end,
         })
-        return target
+
+        local rollback = function()
+            for _, k in ipairs(addedKeys) do
+                rawset(target, k, nil)
+            end
+            setmetatable(target, nil)
+        end
+
+        return rollback
     end
 
-    rawset(package, "loaded", snapshot(package.loaded))
-    rawset(package, "preload", snapshot(package.preload))
-    rawset(package, "searchers", snapshot(package.searchers))
+    local rollbackLoaded = snapshot(package.loaded)
+    local rollbackPreload = snapshot(package.preload)
+    local rollbackSearchers = snapshot(package.searchers)
 
 
 package.nebluaModule = {}
@@ -40,7 +37,7 @@ package.nebluaModule["./entry/iconCursor.lua"] = {
 package.manifest = {
     name = "aseprite-scripts/icon-and-cursor",
     description = "Export sprite as windows icon and cursor.",
-    version = "v0.1.1",
+    version = "v0.2.0",
     author = "Mooncake Sugar",
     license = "MIT",
     homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/",
@@ -52,813 +49,305 @@ end
 
 require("app.iconCursor.init").main()
 
-if true then
-    return
-end
-
--- shows alert with failure message
-function FailAlert (text)
-    if app.isUIAvailable then
-        app.alert({
-            title = "Export Failed",
-            text = text,
-            buttons = "OK",
-        })
-    else
-        io.stdout:write("[Export failed] " .. text)
-    end
-end
-
-util = {
-    ---split string by `sep`
-    ---@param str string
-    ---@param sep string
-    split = function (str, sep)
-        if sep == nil then
-            sep = "%s"
-        end
-
-        local result = {}
-        for s in str:gmatch("([" .. sep .. "]+)") do
-            table.insert(result, s)
-        end
-
-        return result
-    end,
-}
-
-------------------------------
--- ENTRY
-------------------------------
-
-if app.apiVersion < 1 then
-    FailAlert("This script requires Aseprite v1.2.10-beta3 or above.")
-    return
-end
-
-if not app.activeSprite then
-    FailAlert("No sprite selected.")
-    return
-end
-
-local sprite = app.activeSprite
-
-local layerList = { "Visible layers", "Active layer" }
-for _, layer in ipairs(sprite.layers) do
-    table.insert(layerList, "Layer: " .. layer.name)
-end
-local frameList = { "All" }
-for _, tag in ipairs(sprite.tags) do
-    table.insert(frameList, "Tag: " .. tag.name)
-end
-for i = 1, #sprite.frames do
-    table.insert(frameList, "Frame: " .. i)
-end
-
----@type "ico" | "cur" | "ani"
-local filetype = "ico"
----@type string
-local filename = app.fs.filePathAndTitle(sprite.filename) .. "." .. filetype
----@type number
-local hotSpotX = 0
----@type number
-local hotSpotY = 0
----@type number
-local framerate = math.floor(sprite.frames[1].duration * 60)
----@type boolean
-local showCompleated = true
----@type integer[]
-local targetframeNums = {}
----@type string[]
-local excludedLayerNames = {}
----@type boolean
-local exitScript = false
----@type boolean
-local printProcessInfo = false
-
-function SetParamFromDialog ()
-    local fileTypes = { "ico", "cur", "ani" }
-    local paramTypes = {
-        icoSeparator = { "ico" },
-        curSeparator = { "cur" },
-        aniSeparator = { "ani" },
-        hotSpotX = { "cur", "ani" },
-        hotSpotY = { "cur", "ani" },
-        frame = { "ico", "cur", "ani" },
-        layer = { "ico", "cur", "ani" },
-        framerate = { "ani" },
-    }
-
-    local dialog = Dialog()
-    local function updateDialogElementVisibility ()
-        ---@type string
-        for id, param in pairs(paramTypes) do
-            local visible = false
-            for _, p in ipairs(param) do
-                if p == dialog.data.filetype then
-                    visible = true
-                end
-            end
-            dialog:modify({
-                id = id,
-                visible = visible,
-            })
-        end
-    end
-
-    dialog
-        :combobox({
-            id = "filetype",
-            label = "Type",
-            option = fileTypes[1],
-            options = fileTypes,
-            onchange = function ()
-                -- update extension of filename
-                local filename = app.fs.filePathAndTitle(dialog.data.filename --[[@as string]])
-                filename = filename .. "." .. dialog.data.filetype
-
-                dialog:modify({
-                    id = "filename",
-                    filename = filename,
-                })
-
-                -- update frame selection
-                if
-                    dialog.data.filetype --[[@as string]]
-                    == "ani"
-                then
-                    if
-                        (dialog.data.frame --[[@as string]]):sub(1, 7) == "Frame: "
-                    then
-                        dialog:modify({
-                            id = "frame",
-                            option = "All",
-                        })
-                    end
-                end
-
-                updateDialogElementVisibility()
-            end,
-        })
-        :file({
-            id = "filename",
-            label = "Filename",
-            title = "Export as...",
-            save = true,
-            filename = filename,
-            filetypes = { "ico" },
-        })
-        :separator({
-            id = "icoSeparator",
-            text = ".ico file option",
-        })
-        :separator({
-            id = "curSeparator",
-            text = ".cur file option",
-        })
-        :separator({
-            id = "aniSeparator",
-            text = ".ani file option",
-        })
-        :combobox({
-            id = "layer",
-            label = "Layers",
-            option = layerList[1],
-            options = layerList,
-        })
-        :combobox({
-            id = "frame",
-            label = "Frames",
-            option = "Frame: 1",
-            options = frameList,
-        })
-        :number({
-            id = "hotSpotX",
-            label = "HotSpot",
-            text = "0",
-        })
-        :number({
-            id = "hotSpotY",
-            text = "0",
-        })
-        :number({
-            id = "framerate",
-            label = "Framerate (1/60s)",
-            text = "" .. framerate,
-            onchange = function ()
-                dialog:modify({
-                    id = "framerate",
-                    text = math.min(0, dialog.data.framerate --[[@as number]]),
-                })
-            end,
-        })
-        :check({
-            id = "showCompleated",
-            label = "",
-            text = "Show dialog when succeeded",
-            selected = true,
-        })
-        :button({
-            id = "ok",
-            text = "&Export",
-            focus = true,
-        })
-        :button({
-            id = "cancel",
-            text = "&Cancel",
-        })
-
-    updateDialogElementVisibility()
-
-    repeat
-        local retype = false
-        dialog:show()
-
-        local filetype_ = dialog.data.filetype --[[@as string]]
-        local filename_ = dialog.data.filename --[[@as string]]
-        local layer_ = dialog.data.layer --[[@as string]]
-        local frame_ = dialog.data.frame --[[@as string]]
-        local hotSpotX_ = dialog.data.hotSpotX --[[@as number]]
-        local hotSpotY_ = dialog.data.hotSpotY --[[@as number]]
-        local framerate_ = dialog.data.framerate --[[@as number]]
-        local showCompleated_ = dialog.data.showCompleated --[[@as boolean]]
-
-        assert(type(filetype_) == "string", "filetype_ must be string, got" .. type(filetype_))
-        assert(type(filename_) == "string", "filename_ must be string, got" .. type(filename_))
-        assert(type(layer_) == "string", "layer_ must be string, got" .. type(layer_))
-        assert(type(frame_) == "string", "frame_ must be string, got" .. type(frame_))
-        assert(type(hotSpotX_) == "number", "hotSpotX_ must be number, got" .. type(hotSpotX_))
-        assert(type(hotSpotY_) == "number", "hotSpotX_ must be number, got" .. type(hotSpotY_))
-        assert(type(framerate_) == "number", "framerate_ must be number, got" .. type(framerate_))
-        assert(type(showCompleated_) == "boolean", "showCompleated_ must be boolean, got" .. type(showCompleated_))
-
-        if not dialog.data.ok then
-            exitScript = true
-            break
-        end
-
-        if filetype_ ~= "ico" and filetype_ ~= "cur" and filetype_ ~= "ani" then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "The file type " .. filetype_ .. " is not supported",
-            })
-        else
-            filetype = filetype_ --[[@as "ico" | "cur" | "ani"]]
-        end
-
-        filename = filename_
-
-        excludedLayerNames = {}
-        if layer_ == "Visible layers" then
-            for _, layer in ipairs(sprite.layers) do
-                if not layer.isVisible then
-                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
-                end
-            end
-        elseif layer_ == "Active layer" then
-            for _, layer in ipairs(sprite.layers) do
-                if layer.name ~= app.activeLayer then
-                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
-                end
-            end
-        elseif layer_:sub(1, 7) == "Layer: " then
-            local layerName = layer_:sub(8)
-            for _, layer in ipairs(sprite.layers) do
-                if layer.name ~= layerName then
-                    excludedLayerNames[#excludedLayerNames + 1] = layer.name
-                end
-            end
-        end
-
-        targetframeNums = {}
-        if frame_ == "All" then
-            for _, frame in ipairs(sprite.frames) do
-                targetframeNums[#targetframeNums + 1] = frame.frameNumber
-            end
-        elseif frame_:sub(1, 7) == "Frame: " then
-            targetframeNums[1] = tonumber(frame_:sub(8))
-        elseif frame_:sub(1, 5) == "Tag: " then
-            local tagName = frame_:sub(6)
-            for _, tag in ipairs(sprite.tags) do
-                if tag.name == tagName then
-                    for i = tag.fromFrame.frameNumber, tag.toFrame.frameNumber do
-                        targetframeNums[#targetframeNums + 1] = i
-                    end
-                end
-            end
-        end
-
-        if hotSpotX_ < 0 then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "Hot spot x is too small.",
-            })
-        elseif hotSpotX_ >= sprite.width then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "Hot spot x is too big.",
-            })
-        else
-            hotSpotX = hotSpotX_
-        end
-
-        if hotSpotY_ < 0 then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "Hot spot y is too small.",
-            })
-        elseif hotSpotY_ >= sprite.height then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "Hot spot y is too big.",
-            })
-        else
-            hotSpotY = hotSpotY_
-        end
-
-        framerate_ = math.floor(framerate_)
-        if framerate_ < 1 then
-            retype = true
-            app.alert({
-                title = "Invalid configuration",
-                text = "The frame rate is too small.",
-            })
-        end
-
-        showCompleated = showCompleated_
-    until not retype
-
-    if not dialog.data.ok then
-        return
-    end
-end
-
-function SetParamFromCLIArg ()
-    printProcessInfo = true
-
-    for key, value in pairs(app.params) do
-        key = key:lower()
-
-        if key == "type" or "filetype" then
-            if value == "ico" or value == "cur" or value == "ani" then
-                filetype = value
-            else
-                io.stderr:write("[Export failed] Invalid file type " .. value)
-            end
-            exitScript = true
-        elseif key == "out" or "filename" then
-            filename = value
-        elseif key == "hotspotX" then
-            local num = tonumber(value)
-            if type(num) ~= "number" then
-                io.stderr:write("[Export failed] " .. value .. " is not valid for hot spot X")
-                exitScript = true
-            end
-            if num < 0 or num >= sprite.width then
-                io.stderr:write("[Export failed] " .. value .. " is out of range for hot spot X")
-                exitScript = true
-            end
-            hotSpotX = num --[[@as number]]
-        elseif key == "hotspotY" then
-            local num = tonumber(value)
-            if type(num) ~= "number" then
-                io.stderr:write("[Export failed] " .. value .. " is not valid for hot spot Y")
-                exitScript = true
-            end
-            if num < 0 or num >= sprite.height then
-                io.stderr:write("[Export failed] " .. value .. " is out of range for hot spot Y")
-                exitScript = true
-            end
-            hotSpotY = num --[[@as number]]
-        elseif key == "framerate" then
-            local num = tonumber(value)
-            if type(num) ~= "number" then
-                io.stderr:write("[Export failed] " .. value .. " is not valid for framerate")
-                exitScript = true
-            end
-            if num < 0 then
-                io.stderr:write("[Export failed] " .. value .. " is out of range for framerate")
-                exitScript = true
-            end
-            framerate = num --[[@as number]]
-        elseif key == "frames" then
-            local s = util.split(value, ",")
-            for _, str in ipairs(s) do
-                local num = tonumber(str)
-                if type(num) == "number" then
-                    targetframeNums[#targetframeNums + 1] = num
-                end
-            end
-        elseif key == "leyers" then
-            if value == "__visible" then
-                for _, layer in ipairs(sprite.layers) do
-                    if not layer.isVisible then
-                        excludedLayerNames[#excludedLayerNames + 1] = layer.name
-                    end
-                end
-            else
-                local included = util.split(value, ",")
-
-                for _, layer in ipairs(sprite.layers) do
-                    local toExclude = true
-                    for _, name in ipairs(included) do
-                        if layer.name == name then
-                            toExclude = false
-                        end
-                    end
-                    if toExclude then
-                        excludedLayerNames[#excludedLayerNames + 1] = layer.name
-                    end
-                end
-            end
-        end
-    end
-end
-
-if app.isUIAvailable then
-    SetParamFromDialog()
-else
-    SetParamFromCLIArg()
-end
-
-if exitScript then
-    return
-end
-
-if printProcessInfo then
-    print("Filetype: " .. filetype)
-    print("Filename: " .. filename)
-    print("Hot Spot: (" .. hotSpotX .. ", " .. hotSpotY .. ")")
-    print("Framerate: " .. framerate)
-    print("Target cels: ")
-    for _, layer in ipairs(sprite.layers) do
-        local excluded = false
-        for _, name in ipairs(excludedLayerNames) do
-            if layer.name == name then
-                excluded = true
-            end
-        end
-
-        if not excluded then
-            for _, index in ipairs(targetframeNums) do
-                print("  " .. layer.name .. "[" .. index .. "]")
-            end
-        end
-    end
-end
-
-if #targetframeNums < 1 then
-    FailAlert("No frame to export.")
-    return
-end
-
-if #sprite.layers - #excludedLayerNames < 1 then
-    FailAlert("No layer to export.")
-    return
-end
-
-sprite = Sprite(app.activeSprite)
-for _, name in ipairs(excludedLayerNames) do
-    sprite:deleteLayer(name)
-end
-sprite:flatten()
-
----@type Cel[]
-local targetCels = {}
-for _, cel in ipairs(sprite.cels) do
-    local included = false
-    for _, index in ipairs(targetframeNums) do
-        if cel.frameNumber == index then
-            included = true
-        end
-    end
-
-    if included then
-        targetCels[#targetCels + 1] = cel
-    end
-end
-
-local bitmapInfoHeaderSize = 40
-
----`true` if the native endian is little endian, `false` otherwise
-local isLittleEndian = string.pack("=I2", 1):byte(1) == 1
-
----Gets color from cel image in sprite space
----@param x integer
----@param y integer
----@param cel Cel
----@return string color BGRA color
-function GetColorSpriteSpace (x, y, cel)
-    if x < cel.bounds.x then
-        return PackU32LE(0x00000000)
-    end
-    if y < cel.bounds.y then
-        return PackU32LE(0x00000000)
-    end
-    if x >= cel.bounds.x + cel.bounds.width then
-        return PackU32LE(0x00000000)
-    end
-    if y >= cel.bounds.y + cel.bounds.height then
-        return PackU32LE(0x00000000)
-    end
-
-    local pixel = cel.image:getPixel(x - cel.bounds.x, y - cel.bounds.y)
-    if cel.image.colorMode == ColorMode.RGB then
-        if isLittleEndian then
-            -- ordering: ABGR
-            return (">I3I1"):pack(pixel & 0xFFFFFF, pixel & 0xFF)
-        else
-            -- ordering: RGBA
-            return ("<I3I1"):pack(pixel >> 8, pixel & 0xFF)
-        end
-    elseif cel.image.colorMode == ColorMode.GRAY then
-        local v = 0
-        if isLittleEndian then
-            -- ordering: AV
-            v = pixel & 0xFF
-        else
-            -- ordering: VA
-            v = (pixel & 0xFF00) >> 8
-        end
-
-        return ("I1I1I1I1"):pack(v, v, v, pixel & 0xFF)
-    elseif cel.image.colorMode == ColorMode.INDEXED then
-        if pixel == cel.image.spec.transparentColor then
-            return PackU32LE(0x00000000)
-        end
-
-        local color = sprite.palettes[1]:getColor(pixel).rgbaPixel
-
-        if isLittleEndian then
-            -- ordering: ABGR
-            return (">I3I1"):pack(color & 0xFFFFFF, color & 0xFF)
-        else
-            -- ordering: RGBA
-            return ("<I3I1"):pack(color >> 8, color & 0xFF)
-        end
-    end
-
-    return PackU32LE(0x00000000)
-end
-
-function PackU32LE (value)
-    return ("<I4"):pack(value)
-end
-
----Create ico or cur file data of given cels
----@param targetCels Cel[]
----@param resourceType integer
----@param hotSpotX integer
----@param hotSpotY integer
----@return string
-function CreateIcoOrCur (targetCels, resourceType, hotSpotX, hotSpotY)
-    -- create image data
-    local images = {}
-    for i, cel in ipairs(targetCels) do
-        local colorData = ""
-        local maskData = ""
-        local mask = 0
-        local maskCount = 0
-
-        for y = sprite.height - 1, 0, -1 do
-            mask = 0
-            maskCount = 0
-
-            for x = 0, sprite.width - 1 do
-                local color = GetColorSpriteSpace(x, y, cel)
-                colorData = colorData .. color:sub(1, 3) .. "\0"
-                local alphaFlag = 0
-                if color:byte(4) == 0 then
-                    alphaFlag = 1
-                end
-
-                mask = mask << 1 | alphaFlag
-                maskCount = maskCount + 1
-                if maskCount == 8 then
-                    maskData = maskData .. ("I1"):pack(mask)
-                    mask = 0
-                    maskCount = 0
-                end
-            end
-
-            if maskCount ~= 0 then
-                maskData = maskData .. ("I1"):pack(mask << (8 - maskCount))
-            end
-
-            if #colorData % 4 ~= 0 then
-                colorData = colorData .. ("\0"):rep(4 - #colorData % 4)
-            end
-            if #maskData % 4 ~= 0 then
-                maskData = maskData .. ("\0"):rep(4 - #maskData % 4)
-            end
-        end
-
-        images[i] = {
-            color = colorData,
-            mask = maskData,
-        }
-    end
-
-    local data = ""
-
-    -- file header
-    local fileHeader = {
-        resevered = 0,
-        resourceType = resourceType,
-        numOfImgs = #targetCels,
-    }
-    data = data .. ("<I2<I2<I2"):pack(fileHeader.resevered, fileHeader.resourceType, fileHeader.numOfImgs)
-
-    -- icon header
-    -- record offset of icon header to update info later
-    local offsetAddresses = {}
-    for index, frame in ipairs(targetCels) do
-        local iconHeader = {
-            width = sprite.width,
-            height = sprite.height,
-            numOfColors = 0,
-            resevered = 0,
-            hotSpotX = hotSpotX,
-            hotSpotY = hotSpotY,
-            dataSize = bitmapInfoHeaderSize + #images[index].color + #images[index].mask,
-            dataOffset = 0, -- deside later
-        }
-
-        data = data
-            .. ("I1I1I1I1<I2<I2<I4<I4"):pack(
-                iconHeader.width,
-                iconHeader.height,
-                iconHeader.numOfColors,
-                iconHeader.resevered,
-                iconHeader.hotSpotX,
-                iconHeader.hotSpotY,
-                iconHeader.dataSize,
-                iconHeader.dataOffset
-            )
-
-        offsetAddresses[index] = #data - 4
-    end
-
-    -- each icon (or cursor)
-    for index, frame in ipairs(targetCels) do
-        -- set offset in icon header
-        data = data:sub(1, offsetAddresses[index]) .. PackU32LE(#data) .. data:sub(offsetAddresses[index] + 5)
-
-        local bitmapInfoHeader = {
-            size = bitmapInfoHeaderSize,
-            width = sprite.width,
-            -- why doubled?
-            height = sprite.height * 2,
-            planes = 1,
-            bitsPerPixel = 32,
-            compression = 0,
-            imageSize = #images[index].color,
-            pixelPerMeterX = 0,
-            pixelPerMeterY = 0,
-            numOfPalettes = 0,
-            numOfImportatntColors = 0,
-        }
-
-        data = data
-            .. ("<I4<I4<I4<I2<I2<I4<I4<I4<I4<I4<I4"):pack(
-                bitmapInfoHeader.size,
-                bitmapInfoHeader.width,
-                bitmapInfoHeader.height,
-                bitmapInfoHeader.planes,
-                bitmapInfoHeader.bitsPerPixel,
-                bitmapInfoHeader.compression,
-                bitmapInfoHeader.imageSize,
-                bitmapInfoHeader.pixelPerMeterX,
-                bitmapInfoHeader.pixelPerMeterY,
-                bitmapInfoHeader.numOfPalettes,
-                bitmapInfoHeader.numOfImportatntColors
-            )
-
-        -- there is no palettes
-
-        -- pixel data
-        data = data .. images[index].color
-
-        -- mask data data
-        data = data .. images[index].mask
-    end
-
-    return data
-end
-
----@type string
-local fileData
-
-if filetype == "ico" then
-    fileData = CreateIcoOrCur(targetCels, 1, 0, 0)
-elseif filetype == "cur" then
-    fileData = CreateIcoOrCur(targetCels, 2, hotSpotX, hotSpotY)
-elseif filetype == "ani" then
-    fileData = ""
-
-    local riffSizeIndex = 0
-    local listSizeIndex = 0
-
-    fileData = fileData .. "RIFF"
-    -- size of file, deside later
-    riffSizeIndex = #fileData
-    fileData = fileData .. PackU32LE(0)
-    -- signature
-    fileData = fileData .. "ACON"
-
-    -- animation header
-    fileData = fileData .. "anih"
-    -- ani header size
-    fileData = fileData .. PackU32LE(36)
-    -- data size?
-    fileData = fileData .. PackU32LE(36)
-    -- number of frames
-    fileData = fileData .. PackU32LE(#targetCels)
-    -- number of steps
-    fileData = fileData .. PackU32LE(#targetCels)
-    -- width and height
-    -- store zeros because images are stored as icon format
-    fileData = fileData .. PackU32LE(0)
-    fileData = fileData .. PackU32LE(0)
-    -- bits per pixel, as the same as width and height
-    fileData = fileData .. PackU32LE(0)
-    -- planes
-    fileData = fileData .. PackU32LE(1)
-    -- frame rate
-    fileData = fileData .. PackU32LE(framerate)
-    -- flags: 0b01 (no sequence data, ico file in LIST)
-    fileData = fileData .. PackU32LE(1)
-
-    -- LIST header
-    fileData = fileData .. "LIST"
-    -- LIST size
-    listSizeIndex = #fileData
-    fileData = fileData .. PackU32LE(0)
-    -- signature
-    fileData = fileData .. "fram"
-
-    -- each image as cur
-    for _, cel in ipairs(targetCels) do
-        fileData = fileData .. "icon"
-
-        local curData = CreateIcoOrCur({ cel }, 2, hotSpotX, hotSpotY)
-        fileData = fileData .. PackU32LE(#curData)
-        fileData = fileData .. curData
-    end
-
-    local listSize = #fileData - listSizeIndex - 4
-    local sizeStr = PackU32LE(listSize)
-    fileData = fileData:sub(1, listSizeIndex) .. sizeStr .. fileData:sub(listSizeIndex + 5)
-
-    local riffSize = #fileData - riffSizeIndex - 4
-    sizeStr = PackU32LE(riffSize)
-    fileData = fileData:sub(1, riffSizeIndex) .. sizeStr .. fileData:sub(riffSizeIndex + 5)
-else
-    FailAlert('The format "' .. filetype('" is not implemented.'))
-    return
-end
-
-local file = io.open(filename, "wb")
-if not file then
-    FailAlert("Failed to open the file to export.")
-    return
-end
-
-file:write(fileData)
-
-file:close()
-sprite:close()
-
-if showCompleated then
-    if app.isUIAvailable then
-        app.alert({
-            title = "Export Finished",
-            text = "Successfully exported to " .. filename,
-            buttons = "OK",
-        })
-    else
-        print("Successfully exported to " .. filename)
-    end
-end
-
     end
 }
 
 package.nebluaModule["./app/iconCursor/init.lua"] = {
     line = debug.getinfo(1).currentline,
     loader = function(...)
-local params = require("app.iconCursor.parameter")
+local dialog = require("app.iconCursor.dialog")
+local parameter = require("app.iconCursor.parameter")
+local createIcon = require("app.iconCursor.icon").create
+local createAnimCursor = require("app.iconCursor.anim-cursor").create
+local util = require("pkg.asepriteUtil")
+
+local function getParamsFromArgs ()
+    local params = parameter.default(app.sprite)
+    if app.params.filetype ~= nil then
+        params.filetype = app.params.filetype
+    end
+    if app.params.filename ~= nil then
+        params.filename = app.params.filename
+    end
+    if app.params["hot-spot-x"] ~= nil then
+        params.hotSpotX = assert(tonumber(app.params["hot-spot-x"]))
+    end
+    if app.params["hot-spot-y"] ~= nil then
+        params.hotSpotY = assert(tonumber(app.params["hot-spot-y"]))
+    end
+    if app.params.framerate ~= nil then
+        params.framerate = assert(tonumber(app.params.framerate))
+    end
+    if app.params.layers ~= nil then
+        params.layers = app.params.layers
+    end
+    if app.params.tag ~= nil then
+        params.tag = tonumber(app.params.tag) or app.params.tag
+    end
+
+    local valid, validationError = parameter.validate(params, app.sprite)
+    if not valid then
+        error("Error: " .. (validationError or "Unknown validation error"))
+    end
+
+    return params
+end
+
+local function getParams ()
+    if app.isUIAvailable then
+        return dialog.show(app.sprite)
+    else
+        return getParamsFromArgs()
+    end
+end
 
 local function main ()
-    require("app.iconCursor.dialog").createDialog(app.sprite, params.default(app.sprite))
+    if app.apiVersion < 1 then
+        util.alert({ text = "This script requires Aseprite v1.2.10-beta3 or above." })
+        return
+    end
+
+    local sprite = app.sprite
+    if sprite == nil then
+        util.alert({ text = "There is no active sprite to export." })
+        return
+    end
+
+    local params = getParams()
+    if params == nil then
+        return
+    end
+
+    local targetLayers = {}
+    if params.layers == "selected" then
+        targetLayers = util.sprite.getSelectedLayers(sprite)
+    elseif params.layers == "visible" then
+        targetLayers = util.sprite.getVisibleLayers(sprite)
+    end
+
+    local targetFrames = {}
+    if params.tag == nil then
+        targetFrames = sprite.frames
+    elseif type(params.tag) == "number" then
+        targetFrames = { sprite.frames[params.tag] }
+    else
+        local tag = util.sprite.getTag(sprite, params.tag)
+        if tag == nil then
+            error("The specified tag was not found.")
+            return
+        end
+
+        targetFrames = util.tag.getFrames(tag)
+    end
+
+    local fileData = ""
+    if params.filetype == "ani" then
+        fileData = createAnimCursor(params, targetLayers, targetFrames)
+    else
+        fileData = createIcon(params, targetLayers, targetFrames)
+    end
+
+    local file = io.open(params.filename, "wb")
+    if not file then
+        util.alert({ text = "Failed to open the file to export." })
+        return
+    end
+
+    file:write(fileData)
+
+    file:close()
 end
 
 return { main = main }
+
+    end
+}
+
+package.nebluaModule["./app/iconCursor/dialog.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local parameter = require("app.iconCursor.parameter")
+local util = require("pkg.asepriteUtil")
+
+local PROPERTY_KEY = "icon-and-cursor.dialog"
+local FILETYPE_OPTIONS = {
+    { option = "Icon", value = "ico", isCursor = false, isAnimated = false },
+    { option = "Cursor", value = "cur", isCursor = true, isAnimated = false },
+    { option = "Animated Cursor", value = "ani", isCursor = true, isAnimated = true },
+}
+local LAYER_OPTIONS = {
+    { option = "Visible", value = "visible" },
+    { option = "Selected", value = "selected" },
+}
+local TAG_OPTION_PREFIX = "Tag: "
+local FRAME_OPTION_PREFIX = "Frame: "
+local TAG_OPTION_ALL = "All Frames"
+
+local ID = {
+    filetype = "filetype",
+    layers = "layers",
+    tag = "tag",
+    framerate = "framerate",
+    hotspotX = "hotspotX",
+    hotspotY = "hotspotY",
+    filename = "filename",
+    ok = "ok",
+    cancel = "cancel",
+}
+
+---@param options { option: string, value: any }[]
+---@return string[]
+local function optionLabels (options)
+    local labels = {}
+    for _, item in ipairs(options) do
+        table.insert(labels, item.option)
+    end
+    return labels
+end
+
+---@generic T : { option: string }
+---@param options T[]
+---@return T
+local function getOptionEntry (options, option)
+    for _, item in ipairs(options) do
+        if item.option == option then
+            return item
+        end
+    end
+    return nil
+end
+
+---Creates and shows the icon/cursor export dialog
+---@param sprite Sprite
+---@return IconCursorParams? params Returns nil if cancelled
+local function show (sprite)
+    local tagOptions = { { option = TAG_OPTION_ALL, value = nil } }
+    for _, tag in ipairs(sprite.tags) do
+        table.insert(tagOptions, { option = TAG_OPTION_PREFIX .. tag.name, value = tag.name })
+    end
+    for _, frame in ipairs(sprite.frames) do
+        table.insert(tagOptions, { option = FRAME_OPTION_PREFIX .. frame.frameNumber, value = frame.frameNumber })
+    end
+
+    local savedData = {}
+    if sprite.properties ~= nil and type(sprite.properties[PROPERTY_KEY]) == "table" then
+        savedData = sprite.properties[PROPERTY_KEY]
+    end
+
+    local defaultFiletype = FILETYPE_OPTIONS[1].option
+    local defaultFilename = app.fs.filePathAndTitle(sprite.filename) .. "." .. FILETYPE_OPTIONS[1].value
+    local defaultFramerate = math.floor(sprite.frames[1].duration * 60)
+
+    local dialog = Dialog("Export Icon/Cursor")
+    if dialog == nil then
+        error("Failed to create dialog, UI may not be available")
+    end
+
+    local function updateVisibility ()
+        local filetype = dialog.data[ID.filetype]
+        local isCursor = getOptionEntry(FILETYPE_OPTIONS, filetype).isCursor
+        local isAnimated = getOptionEntry(FILETYPE_OPTIONS, filetype).isAnimated
+        dialog:modify({ id = ID.hotspotX, visible = isCursor })
+        dialog:modify({ id = ID.hotspotY, visible = isCursor })
+        dialog:modify({ id = ID.framerate, visible = isAnimated })
+    end
+
+    local function updateFilename ()
+        local filename = dialog.data[ID.filename] --[[ @as string ]]
+        local filetype = dialog.data[ID.filetype] --[[ @as string ]]
+        local newFilename = app.fs.filePathAndTitle(filename) .. "." .. getOptionEntry(FILETYPE_OPTIONS, filetype).value
+        dialog.data[ID.filename] = newFilename
+        dialog:modify({ id = ID.filename, filename = newFilename })
+    end
+
+    dialog
+        :combobox({
+            id = ID.filetype,
+            label = "File Type",
+            option = savedData[ID.filetype] or defaultFiletype,
+            options = optionLabels(FILETYPE_OPTIONS),
+            onchange = function ()
+                updateVisibility()
+                updateFilename()
+            end,
+        })
+        :combobox({
+            id = ID.layers,
+            label = "Layers",
+            option = savedData[ID.layers] or LAYER_OPTIONS["Visible"],
+            options = optionLabels(LAYER_OPTIONS),
+        })
+        :combobox({
+            id = ID.tag,
+            label = "Frames",
+            option = savedData[ID.tag] or TAG_OPTION_ALL,
+            options = optionLabels(tagOptions),
+        })
+        :number({
+            id = ID.framerate,
+            label = "Framerate (1/60s)",
+            text = tostring(savedData[ID.framerate]) or tostring(defaultFramerate),
+        })
+        :number({
+            id = ID.hotspotX,
+            label = "Hot Spot",
+            text = tostring(savedData[ID.hotspotX]) or "0",
+            decimals = 0,
+        })
+        :number({
+            id = ID.hotspotY,
+            text = tostring(savedData[ID.hotspotY]) or "0",
+            decimals = 0,
+        })
+        :separator({ text = "Output" })
+        :file({
+            id = ID.filename,
+            label = "Filename",
+            title = "Export as...",
+            save = true,
+            filename = savedData[ID.filename] or defaultFilename,
+        })
+        -- Buttons
+        :button({ id = ID.ok, text = "&Export", focus = true })
+        :button({ id = ID.cancel, text = "&Cancel" })
+
+    while true do
+        updateVisibility()
+        dialog:show()
+
+        -- Check if cancelled
+        if not dialog.data[ID.ok] then
+            return nil
+        end
+
+        -- Build params table
+        local params = {
+            filetype = getOptionEntry(FILETYPE_OPTIONS, dialog.data.filetype).value,
+            filename = dialog.data.filename,
+            hotSpotX = dialog.data.hotspotX or 0,
+            hotSpotY = dialog.data.hotspotY or 0,
+            framerate = dialog.data.framerate or 1,
+            tag = getOptionEntry(tagOptions, dialog.data.tag).value,
+            layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
+        }
+
+        -- Validate params
+        local valid, validationError = parameter.validate(params, sprite)
+        if valid then
+            sprite.properties[PROPERTY_KEY] = dialog.data
+            return params --[[@as IconCursorParams]]
+        else
+            util.alert({
+                title = "Invalid Parameters",
+                text = validationError or "Unknown validation error",
+            })
+        end
+    end
+end
+
+return {
+    show = show,
+}
 
     end
 }
@@ -873,7 +362,7 @@ package.nebluaModule["./app/iconCursor/parameter.lua"] = {
 ---@field hotSpotX integer
 ---@field hotSpotY integer
 ---@field framerate integer
----@field tag string?
+---@field tag string | integer | nil
 ---@field layers "visible" | "selected"
 
 ---Creates default parameters for icon/cursor export
@@ -957,10 +446,10 @@ local function validate (params, sprite)
         return false, "framerate must be >= 1"
     end
 
-    -- Validate tag (nil means all frames, string means specific tag)
-    if params.tag ~= nil then
+    -- Validate tag (nil means all frames, string means specific tag, number means frame index)
+    if type(params.tag) == "string" then
         if type(params.tag) ~= "string" then
-            return false, "tag must be a string or nil"
+            return false, "tag must be a string, integer or nil"
         end
         if params.tag == "" then
             return false, "tag cannot be empty string"
@@ -975,6 +464,16 @@ local function validate (params, sprite)
         end
         if not tagFound then
             return false, "tag must be nil or a valid tag name"
+        end
+    elseif type(params.tag) == "number" then
+        if params.tag ~= math.floor(params.tag) then
+            return false, "tag must be an integer, string, or nil"
+        end
+        if params.tag < 1 then
+            return false, "tag must be >= 1 if it's a number"
+        end
+        if params.tag > #sprite.frames then
+            return false, "tag must be <= number of frames (" .. #sprite.frames .. ") if it's a number"
         end
     end
 
@@ -997,164 +496,721 @@ return {
     end
 }
 
-package.nebluaModule["./app/iconCursor/dialog.lua"] = {
+package.nebluaModule["./app/iconCursor/icon.lua"] = {
     line = debug.getinfo(1).currentline,
     loader = function(...)
-local parameter = require("app.iconCursor.parameter")
+local bitmaps = require("pkg.bitmap")
+local pack = require("pkg.string..pack")
+local util = require("pkg.asepriteUtil")
 
-local TAG_PREFIX = "Tag: "
-local ALL_FRAMES_LABEL = "All Frames"
-
----Creates and shows the icon/cursor export dialog
----@param sprite Sprite
----@return IconCursorParams? params Returns nil if cancelled
-local function createDialog (sprite)
-    local fileType = "ico"
-    local initialFilename = app.fs.filePathAndTitle(sprite.filename) .. ".ico"
-
-    -- Build tag options list
-    local tagOptions = { ALL_FRAMES_LABEL }
-    for _, tag in ipairs(sprite.tags) do
-        table.insert(tagOptions, TAG_PREFIX .. tag.name)
+---@param filetype "ico" | "cur" | "ani"
+---@param numImages integer
+---@return string
+local function createFileHeader (filetype, numImages)
+    -- icon: 1, cursor: 2
+    local resourceType = 1
+    if filetype == "cur" or filetype == "ani" then
+        resourceType = 2
     end
 
-    local dialog = Dialog("Export Icon/Cursor")
-    if dialog == nil then
-        error("Failed to create dialog, UI may not be available")
+    return table.concat({
+        pack.u16LE(0), -- reserved
+        pack.u16LE(resourceType),
+        pack.u16LE(numImages),
+    }, "")
+end
+
+---@param width integer
+---@param height integer
+---@param hotSpotX integer
+---@param hotSpotY integer
+---@param imageDataSize integer
+---@param imageDataOffset integer
+---@return string
+local function createIconHeader (width, height, hotSpotX, hotSpotY, imageDataSize, imageDataOffset)
+    return table.concat({
+        pack.u8(width),
+        pack.u8(height),
+        pack.u8(0), -- number of colors in palette (0 = no palette)
+        pack.u8(0), -- reserved
+        pack.u16LE(hotSpotX),
+        pack.u16LE(hotSpotY),
+        pack.u32LE(imageDataSize),
+        pack.u32LE(imageDataOffset),
+    })
+end
+
+---@param params IconCursorParams
+---@param targetLayers Layer[]
+---@param targetFrames Frame[]
+---@return string
+local function createIcon (params, targetLayers, targetFrames)
+    local images = {}
+    for _, frame in ipairs(targetFrames) do
+        local image = util.frame.mergeLayerImages(frame, targetLayers)
+        table.insert(images, image)
     end
 
-    -- Update field visibility based on selected file type
-    local function updateVisibility ()
-        local isCursor = fileType == "cur" or fileType == "ani"
-        local isAnimated = fileType == "ani"
+    local fileHeader = createFileHeader(params.filetype, #targetFrames)
 
-        dialog:modify({ id = "hotspotX", visible = isCursor })
-        dialog:modify({ id = "hotspotY", visible = isCursor })
-        dialog:modify({ id = "framerate", visible = isAnimated })
+    ---@type string[]
+    local iconHeaders = {}
+    ---@type string[]
+    local imageData = {}
+    local dataSizeSum = 0
+    for _, frame in ipairs(targetFrames) do
+        local image = util.frame.mergeLayerImages(frame, targetLayers)
+        local bitmap = bitmaps.createWithAlphaMask(image)
+
+        local dataSize = #bitmap.infoHeader + #bitmap.pixelData
+        -- offset = (size of file header) + (number of images) * (size of icon header = 16) + dataSizeSum
+        local dataOffset = #fileHeader + (#targetFrames * 16) + dataSizeSum
+        local header = createIconHeader(
+            image.width,
+            image.height,
+            params.filetype == "ico" and 0 or params.hotSpotX,
+            params.filetype == "ico" and 0 or params.hotSpotY,
+            dataSize,
+            dataOffset
+        )
+
+        table.insert(iconHeaders, header)
+        table.insert(
+            imageData,
+            table.concat({
+                bitmap.infoHeader,
+                bitmap.pixelData,
+            }, "")
+        )
+        dataSizeSum = dataSizeSum + dataSize
     end
 
-    -- Update filename extension to match selected file type
-    local function updateFilenameExtension ()
-        local currentFilename = dialog.data.filename
-        if type(currentFilename) == "string" then
-            local baseFilename = app.fs.filePathAndTitle(currentFilename)
-            local newFilename = baseFilename .. "." .. fileType
-            dialog:modify({ id = "filename", filename = newFilename })
-        end
-    end
-
-    dialog
-        :combobox({
-            id = "filetype",
-            label = "File Type",
-            option = "ICO",
-            options = { "ICO", "CUR", "ANI" },
-            onchange = function ()
-                local selected = dialog.data.filetype --[[@as string]]
-                if selected then
-                    fileType = selected:lower()
-                    updateVisibility()
-                    updateFilenameExtension()
-                end
-            end,
-        })
-        :combobox({
-            id = "layers",
-            label = "Layers",
-            option = "Visible",
-            options = { "Visible", "Selected" },
-        })
-        :combobox({
-            id = "tag",
-            label = "Frames",
-            option = ALL_FRAMES_LABEL,
-            options = tagOptions,
-        })
-        :number({
-            id = "framerate",
-            label = "Framerate (1/60s)",
-            text = tostring(math.floor(sprite.frames[1].duration * 60)),
-        })
-        :number({
-            id = "hotspotX",
-            label = "Hot Spot",
-            text = "0",
-            decimals = 0,
-        })
-        :number({
-            id = "hotspotY",
-            text = "0",
-            decimals = 0,
-        })
-        :separator({ text = "Output" })
-        :file({
-            id = "filename",
-            label = "Filename",
-            title = "Export as...",
-            save = true,
-            filename = initialFilename,
-            filetypes = { "ico", "cur", "ani" },
-        })
-        -- Buttons
-        :button({
-            id = "ok",
-            text = "&Export",
-            focus = true,
-        })
-        :button({
-            id = "cancel",
-            text = "&Cancel",
-        })
-
-    updateVisibility()
-    dialog:show()
-
-    -- Check if cancelled
-    if not dialog.data.ok then
-        return nil
-    end
-
-    -- Parse layers option
-    local layers = "visible"
-    if dialog.data.layers == "Selected" then
-        layers = "selected"
-    end
-
-    -- Parse tag option
-    local tag = nil
-    if dialog.data.tag ~= ALL_FRAMES_LABEL then
-        -- Extract tag name from "Tag: {name}" prefix
-        tag = (dialog.data.tag --[[@as string]]):sub(#TAG_PREFIX + 1)
-    end
-
-    -- Build params table
-    local params = {
-        filetype = fileType,
-        filename = dialog.data.filename,
-        hotSpotX = dialog.data.hotspotX,
-        hotSpotY = dialog.data.hotspotY,
-        framerate = dialog.data.framerate,
-        tag = tag,
-        layers = layers,
-    }
-
-    -- Validate params
-    local valid, validationError = parameter.validate(params, sprite)
-    if not valid then
-        app.alert({
-            title = "Invalid Parameters",
-            text = validationError or "Unknown validation error",
-            buttons = "OK",
-        })
-        return nil
-    end
-
-    return params --[[@as IconCursorParams]]
+    return table.concat({
+        fileHeader,
+        table.concat(iconHeaders),
+        table.concat(imageData),
+    }, "")
 end
 
 return {
-    createDialog = createDialog,
+    create = createIcon,
 }
+
+    end
+}
+
+package.nebluaModule["./app/iconCursor/anim-cursor.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local createIcon = require("app.iconCursor.icon").create
+local pack = require("pkg.string..pack")
+local riff = require("pkg.riff")
+
+local function createAnimHeader (numFrames, framerate)
+    return table.concat({
+        pack.u32LE(36), -- size of this header
+        pack.u32LE(numFrames), -- numFrames
+        pack.u32LE(numFrames), -- numSteps
+        pack.u32LE(0), -- width (0 = use frame width)
+        pack.u32LE(0), -- height (0 = use frame height)
+        pack.u32LE(0), -- bitCount (0 = use frame bit depth)
+        pack.u32LE(1), -- numPlanes
+        pack.u32LE(framerate), -- displayRate
+        pack.u32LE(1), -- flags (0b01, frames are icon data)
+    })
+end
+
+---@param params IconCursorParams
+---@param targetLayers Layer[]
+---@param targetFrames Frame[]
+---@return string
+local function createAnimCursor (params, targetLayers, targetFrames)
+    ---@type RiffChunk[]
+    local iconChunks = {}
+    for _, frame in ipairs(targetFrames) do
+        local icon = createIcon(params, targetLayers, { frame })
+
+        table.insert(iconChunks, riff.chunk("icon", icon))
+    end
+
+    local file = riff.riffChunk("ACON", {
+        riff.chunk("anih", createAnimHeader(#targetFrames, params.framerate)),
+        riff.listChunk("fram", iconChunks),
+    })
+
+    return tostring(file)
+end
+
+return {
+    create = createAnimCursor,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/asepriteUtil/init.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+return {
+    alert = require("pkg.asepriteUtil.alert"),
+    frame = require("pkg.asepriteUtil.frame"),
+    sprite = require("pkg.asepriteUtil.sprite"),
+    tag = require("pkg.asepriteUtil.tag"),
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/bitmap/init.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local pack = require("pkg.string.pack")
+local BitmapFile = require("pkg.bitmap.bitmap").BitmapFile
+
+---Generates BMP file header
+---@param fileSize integer Total file size in bytes
+---@return string Binary header data
+local function createFileHeader (fileSize)
+    return table.concat({
+        "BM", -- Signature
+        pack.u32LE(fileSize), -- File size
+        pack.u32LE(0), -- Reserved
+        pack.u32LE(54), -- Data offset (14 + 40)
+    })
+end
+
+---Generates bitmap info header
+---@param width integer Image width in pixels
+---@param height integer Image height in pixels
+---@param bitsPerPixel integer Bits per pixel (e.g., 24 for RGB)
+---@param imageSize integer Size of pixel data in bytes
+---@return string Binary header data
+local function createInfoHeader (width, height, bitsPerPixel, imageSize)
+    return table.concat({
+        pack.u32LE(40), -- Header size
+        pack.i32LE(width), -- Image width
+        pack.i32LE(height), -- Image height
+        pack.u16LE(1), -- Planes (always 1)
+        pack.u16LE(bitsPerPixel), -- Bits per pixel
+        pack.u32LE(0), -- Compression (0 = uncompressed)
+        pack.u32LE(imageSize), -- Image size
+        pack.i32LE(0), -- X pixels per meter (0 = not specified)
+        pack.i32LE(0), -- Y pixels per meter (0 = not specified)
+        pack.u32LE(0), -- Colors used (0 = all colors)
+        pack.u32LE(0), -- Important colors (0 = all important)
+    })
+end
+
+---Encodes image pixels to BMP format
+---Converts RGB to BGR, processes bottom-to-top, adds row padding
+---@param image Image Aseprite Image object
+---@return string Binary pixel data
+local function encodePixels (image)
+    local width = image.width
+    local height = image.height
+    local padding = (4 - (width * 3) % 4) % 4
+    local rows = {}
+
+    -- Process rows from bottom to top
+    for y = height - 1, 0, -1 do
+        local row = {}
+
+        for x = 0, width - 1 do
+            local pixel = image:getPixel(x, y)
+
+            -- Store as BGR
+            table.insert(row, pack.u8(app.pixelColor.rgbaB(pixel)))
+            table.insert(row, pack.u8(app.pixelColor.rgbaG(pixel)))
+            table.insert(row, pack.u8(app.pixelColor.rgbaR(pixel)))
+        end
+
+        -- Add padding bytes to align row to 4-byte boundary
+        table.insert(row, ("\x00"):rep(padding))
+
+        table.insert(rows, table.concat(row))
+    end
+
+    return table.concat(rows)
+end
+
+---Encodes image alpha pixels to BMP 1-bit image data
+---Converts RGB to BGR, processes bottom-to-top, adds row padding
+---@param image Image Aseprite Image object
+---@return string Binary pixel data
+local function encodeAlphaMask (image)
+    local width = image.width
+    local height = image.height
+
+    -- Calculate row padding to align to 4-byte boundary
+    local bitsPerRow = width
+    local bytesPerRow = math.ceil(bitsPerRow / 8)
+    local padding = (4 - (bytesPerRow % 4)) % 4
+
+    local maskData = ""
+
+    -- Process rows from bottom to top (BMP format)
+    for y = height - 1, 0, -1 do
+        local mask = 0
+        local bitCount = 0
+
+        -- Process pixels from left to right
+        for x = 0, width - 1 do
+            local pixel = image:getPixel(x, y)
+            local alpha = app.pixelColor.rgbaA(pixel)
+
+            -- Set bit to 1 if pixel is transparent (alpha == 0)
+            local transparentBit = (alpha == 0) and 1 or 0
+
+            -- Pack bit into current byte (MSB first)
+            mask = (mask << 1) | transparentBit
+            bitCount = bitCount + 1
+
+            -- When we've packed 8 bits, write the byte
+            if bitCount == 8 then
+                maskData = maskData .. pack.u8(mask)
+                mask = 0
+                bitCount = 0
+            end
+        end
+
+        -- Handle remaining bits in the row (if width is not multiple of 8)
+        if bitCount ~= 0 then
+            -- Shift remaining bits to MSB position
+            mask = mask << (8 - bitCount)
+            maskData = maskData .. pack.u8(mask)
+        end
+
+        -- Add padding bytes to align row to 4-byte boundary
+        maskData = maskData .. ("\x00"):rep(padding)
+    end
+
+    return maskData
+end
+
+---Creates a BitmapFile from an Aseprite Image
+---@param image Image Aseprite RGB Image object
+---@return BitmapFile
+local function create (image)
+    if image.colorMode ~= ColorMode.RGB then
+        error("Only RGB images are supported for BMP export")
+    end
+
+    local pixelData = encodePixels(image)
+    local infoHeader = createInfoHeader(image.width, image.height, 24, #pixelData)
+    local fileSize = 14 + #infoHeader + #pixelData -- 14: file header
+    local fileHeader = createFileHeader(fileSize)
+    return BitmapFile(fileHeader, infoHeader, pixelData)
+end
+
+---Creates a BitmapFile with alpha mask from an Aseprite Image
+---@param image Image Aseprite RGB Image object
+local function createWithAlphaMask (image)
+    if image.colorMode ~= ColorMode.RGB then
+        error("Only RGB images are supported for BMP export")
+    end
+
+    local pixelData = encodePixels(image)
+    local alphaMaskData = encodeAlphaMask(image)
+    local infoHeader = createInfoHeader(
+        image.width,
+        image.height * 2, -- double the height for alpha mask
+        24,
+        #pixelData -- not include alpha mask data in image size
+    )
+    local fileSize = 14 + #infoHeader + #pixelData + #alphaMaskData -- 14: file header
+    local fileHeader = createFileHeader(fileSize)
+
+    return BitmapFile(fileHeader, infoHeader, pixelData .. alphaMaskData)
+end
+
+return {
+    create = create,
+    createWithAlphaMask = createWithAlphaMask,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/string/pack.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---Packs 32-bit unsigned integer into a big-endian encoded binary string
+---@param data integer
+---@return string
+local function u32BE (data)
+    return (">I4"):pack(data)
+end
+
+---Packs 32-bit signed integer into a big-endian encoded binary string
+---@param data integer
+---@return string
+local function i32BE (data)
+    return (">i4"):pack(data)
+end
+
+---Packs 16-bit unsigned integer into a big-endian encoded binary string
+---@param data integer
+---@return string
+local function u16BE (data)
+    return (">I2"):pack(data)
+end
+
+---Packs 8-bit unsigned integer into a binary string
+---@param data integer
+---@return string
+local function u8 (data)
+    return ("B"):pack(data)
+end
+
+---Packs 32-bit unsigned integer into a little-endian encoded binary string
+---@param data integer
+---@return string
+local function u32LE (data)
+    return ("<I4"):pack(data)
+end
+
+---Packs 32-bit signed integer into a little-endian encoded binary string
+---@param data integer
+---@return string
+local function i32LE (data)
+    return ("<i4"):pack(data)
+end
+
+---Packs 16-bit unsigned integer into a little-endian encoded binary string
+---@param data integer
+---@return string
+local function u16LE (data)
+    return ("<I2"):pack(data)
+end
+
+return {
+    u32BE = u32BE,
+    i32BE = i32BE,
+    u16BE = u16BE,
+    u8 = u8,
+    u32LE = u32LE,
+    i32LE = i32LE,
+    u16LE = u16LE,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/riff/init.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---@class RiffChunk
+---@field id string
+---@field data string
+local __chunk = {}
+
+local __chunkMeta = {
+    ---@param self RiffChunk
+    __tostring = function (self)
+        local padding = ""
+        if #self.data % 2 == 1 then
+            padding = "\0"
+        end
+        return ("c4<I4"):pack(self.id, #self.data) .. self.data .. padding
+    end,
+}
+
+---@param id string
+---@param data string
+---@return RiffChunk
+local function chunk (id, data)
+    local obj = { id = id, data = data }
+    setmetatable(obj, __chunkMeta)
+    return obj
+end
+
+---@param identifier string
+---@param data RiffChunk | RiffChunk[]
+---@return RiffChunk
+local function riffChunk (identifier, data)
+    if type(data) == "table" and #data > 0 then
+        local payloads = {}
+        for _, d in ipairs(data) do
+            table.insert(payloads, tostring(d))
+        end
+
+        return chunk("RIFF", identifier .. table.concat(payloads))
+    end
+
+    return chunk("RIFF", identifier .. tostring(data))
+end
+
+---@param identifier string
+---@param items RiffChunk[]
+---@return RiffChunk
+local function listChunk (identifier, items)
+    local itemsStr = {}
+    for _, item in ipairs(items) do
+        table.insert(itemsStr, tostring(item))
+    end
+
+    return chunk("LIST", identifier .. table.concat(itemsStr))
+end
+
+return {
+    chunk = chunk,
+    riffChunk = riffChunk,
+    listChunk = listChunk,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/asepriteUtil/alert.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+local isInteger = require("pkg.type.isType").isInteger
+
+---@alias AlertInit { title?: string, text: string | string[], buttons?: string[] }
+
+---Prints an alert message to the UI if available, otherwise print to the console.
+---@param init AlertInit
+---@return integer
+local function alert (init)
+    local title = init.title
+    local text = init.text
+    local buttons = init.buttons
+
+    if title == nil then
+        title = ""
+    end
+    if buttons == nil or #buttons == 0 then
+        buttons = { "&Ok" }
+    end
+
+    if app.isUIAvailable then
+        return app.alert({ title = title, text = text, buttons = buttons })
+    else
+        if title ~= "" then
+            print(title)
+        end
+
+        if type(text) == "string" then
+            print(text)
+        else
+            print(table.concat(text, "\n"))
+        end
+
+        if #buttons <= 1 then
+            --Just receive keyboard input
+            local _ = io.stdin:read("l")
+            return 1
+        else
+            --Print list of buttons with index
+            local len = #("" .. #buttons)
+            local formatString = "%" .. len .. "d: %s"
+            for i, buttonText in ipairs(buttons) do
+                --Remove the first "&"
+                local amp = buttonText:find("&")
+                if amp ~= nil then
+                    buttonText = buttonText:sub(0, amp - 1) .. buttonText:sub(amp + 1)
+                end
+                print(string.format(formatString, i, buttonText))
+            end
+            io.stdin:flush()
+
+            while true do
+                io.stdout:write("> ")
+                io.stdout:flush()
+
+                local answer = tonumber(io.stdin:read("l"))
+                if isInteger(answer) and 1 <= answer and answer <= #buttons then
+                    return answer --[[ @as integer ]]
+                end
+            end
+        end
+    end
+end
+
+return alert
+
+    end
+}
+
+package.nebluaModule["./pkg/asepriteUtil/frame.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---@param frame Frame
+---@param layers Layer[] | nil
+---@return Image
+local function mergeLayerImages (frame, layers)
+    if layers == nil then
+        layers = frame.sprite.layers
+    end
+
+    local result = Image(frame.sprite.width, frame.sprite.height, ColorMode.RGB)
+    for _, layer in ipairs(layers) do
+        local cel = layer:cel(frame)
+        if cel ~= nil then
+            result:drawImage(cel.image, cel.bounds.origin, layer.opacity, layer.blendMode)
+        end
+    end
+
+    return result
+end
+
+return {
+    mergeLayerImages = mergeLayerImages,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/asepriteUtil/sprite.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---@param sprite Sprite
+---@param perdicate (fun(layer: Layer): boolean) | nil
+---@return Layer[]
+local function getNonGroupLayers (sprite, perdicate)
+    ---@type Layer
+    local result = {}
+
+    local function traverse (layer)
+        if perdicate ~= nil and not perdicate(layer) then
+            return
+        end
+
+        if layer.isGroup then
+            for _, child in ipairs(layer.layers) do
+                traverse(child)
+            end
+        else
+            table.insert(result, layer)
+        end
+    end
+
+    for _, layer in ipairs(sprite.layers) do
+        traverse(layer)
+    end
+
+    return result
+end
+
+---@param sprite Sprite
+---@return Layer[]
+local function getSelectedNonGroupLayers (sprite)
+    return getNonGroupLayers(sprite, function (layer)
+        return app.range:contains(layer)
+    end)
+end
+
+---@param sprite Sprite
+---@param name string
+---@return Tag | nil
+local function getTag (sprite, name)
+    for _, tag in ipairs(sprite.tags) do
+        if tag.name == name then
+            return tag
+        end
+    end
+
+    return nil
+end
+
+---@param sprite Sprite
+---@return Layer[]
+local function getVisibleLayers (sprite)
+    return getNonGroupLayers(sprite, function (layer)
+        return layer.isVisible
+    end)
+end
+
+return {
+    getNonGroupLayers = getNonGroupLayers,
+    getSelectedLayers = getSelectedNonGroupLayers,
+    getVisibleLayers = getVisibleLayers,
+    getTag = getTag,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/asepriteUtil/tag.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---@param tag Tag
+---@return Frame[]
+local function getFrames (tag)
+    local result = {}
+    for i = tag.fromFrame.frameNumber, tag.toFrame.frameNumber do
+        table.insert(result, tag.sprite.frames[i])
+    end
+    return result
+end
+
+return {
+    getFrames = getFrames,
+}
+
+    end
+}
+
+package.nebluaModule["./pkg/bitmap/bitmap.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+---@class BitmapFile
+---@field fileHeader string BMP file header (14 bytes)
+---@field infoHeader string Bitmap info header (40 bytes)
+---@field pixelData string Binary pixel data
+---@overload fun(fileHeader: string, infoHeader: string, pixelData: string): BitmapFile
+local BitmapFile = {}
+
+---Converts the bitmap file to a binary string
+---@param bitmap BitmapFile
+---@return string
+local function tostring (bitmap)
+    return table.concat({
+        bitmap.fileHeader,
+        bitmap.infoHeader,
+        bitmap.pixelData,
+    })
+end
+
+BitmapFile.tostring = tostring
+
+setmetatable(BitmapFile --[[ @as table ]], {
+    __call = function (_, fileHeader, infoHeader, pixelData)
+        local value = {
+            fileHeader = fileHeader,
+            infoHeader = infoHeader,
+            pixelData = pixelData,
+        }
+
+        setmetatable(value, {
+            __index = BitmapFile,
+            __tostring = tostring,
+        })
+
+        return value
+    end,
+})
+
+return { BitmapFile = BitmapFile }
+
+    end
+}
+
+package.nebluaModule["./pkg/type/isType.lua"] = {
+    line = debug.getinfo(1).currentline,
+    loader = function(...)
+--- Return true if given value is an integer
+---@param val any
+---@return boolean
+local function isInteger (val)
+    if type(val) ~= "number" then
+        return false
+    end
+
+    return val % 1 .. "" == "0"
+end
+
+return { isInteger = isInteger }
 
     end
 }
@@ -1302,13 +1358,9 @@ return (function (...)
         table.pack(xpcall(loader, errorHandler, "./entry.iconCursor", ...))
     local success = result[1]
 
-        package.loaded.__unload()
-    package.preload.__unload()
-    package.searchers.__unload()
-
-    setmetatable(package.loaded, nil)
-    setmetatable(package.preload, nil)
-    setmetatable(package.searchers, nil)
+        rollbackLoaded()
+    rollbackPreload()
+    rollbackSearchers()
 
 
     -- print error to stdout and re-throw
