@@ -64,8 +64,14 @@ local function createIcon (params, targetLayers, targetFrames)
         local dataSize = #bitmap.infoHeader + #bitmap.pixelData
         -- offset = (size of file header) + (number of images) * (size of icon header = 16) + dataSizeSum
         local dataOffset = #fileHeader + (#targetFrames * 16) + dataSizeSum
-        local header =
-            createIconHeader(image.width, image.height, params.hotSpotX, params.hotSpotY, dataSize, dataOffset)
+        local header = createIconHeader(
+            image.width,
+            image.height,
+            params.filetype == "ico" and 0 or params.hotSpotX,
+            params.filetype == "ico" and 0 or params.hotSpotY,
+            dataSize,
+            dataOffset
+        )
 
         table.insert(iconHeaders, header)
         table.insert(
