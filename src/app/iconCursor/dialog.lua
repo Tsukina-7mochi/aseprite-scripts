@@ -3,9 +3,9 @@ local util = require("pkg.asepriteUtil")
 
 local PROPERTY_KEY = "icon-and-cursor.dialog"
 local FILETYPE_OPTIONS = {
-    { option = "ICO", value = "ico" },
-    { option = "CUR", value = "cur" },
-    { option = "ANI", value = "ani" },
+    { option = "Icon", value = "ico" },
+    { option = "Cursor", value = "cur" },
+    { option = "Animated Cursor", value = "ani" },
 }
 local LAYER_OPTIONS = {
     { option = "Visible", value = "visible" },
