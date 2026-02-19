@@ -16,16 +16,18 @@ end
 ---Generates bitmap info header
 ---@param width integer Image width in pixels
 ---@param height integer Image height in pixels
+---@param bitsPerPixel integer Bits per pixel (e.g., 24 for RGB)
+---@param imageSize integer Size of pixel data in bytes
 ---@return string Binary header data
-local function createInfoHeader (width, height)
+local function createInfoHeader (width, height, bitsPerPixel, imageSize)
     return table.concat({
         pack.u32LE(40), -- Header size
         pack.i32LE(width), -- Image width
         pack.i32LE(height), -- Image height
         pack.u16LE(1), -- Planes (always 1)
-        pack.u16LE(24), -- Bits per pixel
+        pack.u16LE(bitsPerPixel), -- Bits per pixel
         pack.u32LE(0), -- Compression (0 = uncompressed)
-        pack.u32LE(0), -- Image size (0 is valid for uncompressed)
+        pack.u32LE(imageSize), -- Image size
         pack.i32LE(0), -- X pixels per meter (0 = not specified)
         pack.i32LE(0), -- Y pixels per meter (0 = not specified)
         pack.u32LE(0), -- Colors used (0 = all colors)
@@ -127,15 +129,10 @@ local function create (image)
         error("Only RGB images are supported for BMP export")
     end
 
-    -- Calculate sizes
-    local rowSize = image.width * 3 + ((4 - (image.width * 3) % 4) % 4)
-    local pixelDataSize = rowSize * image.height
-    local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
-
-    -- Generate BMP components
-    local fileHeader = createFileHeader(fileSize)
-    local infoHeader = createInfoHeader(image.width, image.height)
     local pixelData = encodePixels(image)
+    local infoHeader = createInfoHeader(image.width, image.height, 24, #pixelData)
+    local fileSize = 14 + #infoHeader + #pixelData -- 14: file header
+    local fileHeader = createFileHeader(fileSize)
     return BitmapFile(fileHeader, infoHeader, pixelData)
 end
 
@@ -146,17 +143,17 @@ local function createWithAlphaMask (image)
         error("Only RGB images are supported for BMP export")
     end
 
-    -- Calculate sizes
-    local rowSize = image.width * 3 + ((4 - (image.width * 3) % 4) % 4)
-    local pixelDataSize = rowSize * image.height
-    local fileSize = 54 + pixelDataSize -- 14 (file header) + 40 (info header) + pixel data
-
-    -- Generate BMP components
-    -- double the height for alpha mask
-    local fileHeader = createFileHeader(fileSize)
-    local infoHeader = createInfoHeader(image.width, image.height * 2)
     local pixelData = encodePixels(image)
     local alphaMaskData = encodeAlphaMask(image)
+    local infoHeader = createInfoHeader(
+        image.width,
+        image.height * 2, -- double the height for alpha mask
+        24,
+        #pixelData -- not include alpha mask data in image size
+    )
+    local fileSize = 14 + #infoHeader + #pixelData + #alphaMaskData -- 14: file header
+    local fileHeader = createFileHeader(fileSize)
+
     return BitmapFile(fileHeader, infoHeader, pixelData .. alphaMaskData)
 end
 
