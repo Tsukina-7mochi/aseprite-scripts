@@ -3,9 +3,9 @@ local util = require("pkg.asepriteUtil")
 
 local PROPERTY_KEY = "icon-and-cursor.dialog"
 local FILETYPE_OPTIONS = {
-    { option = "Icon", value = "ico" },
-    { option = "Cursor", value = "cur" },
-    { option = "Animated Cursor", value = "ani" },
+    { option = "Icon", value = "ico", isCursor = false, isAnimated = false },
+    { option = "Cursor", value = "cur", isCursor = true, isAnimated = false },
+    { option = "Animated Cursor", value = "ani", isCursor = true, isAnimated = true },
 }
 local LAYER_OPTIONS = {
     { option = "Visible", value = "visible" },
@@ -36,12 +36,13 @@ local function optionLabels (options)
     return labels
 end
 
----@param options { option: string, value: any }[]
----@return string | nil
-local function getOptionValue (options, option)
+---@generic T : { option: string }
+---@param options T[]
+---@return T
+local function getOptionEntry (options, option)
     for _, item in ipairs(options) do
         if item.option == option then
-            return item.value
+            return item
         end
     end
     return nil
@@ -72,8 +73,8 @@ local function show (sprite)
 
     local function updateVisibility ()
         local filetype = dialog.data[ID.filetype]
-        local isCursor = filetype == "CUR" or filetype == "ANI"
-        local isAnimated = filetype == "ANI"
+        local isCursor = getOptionEntry(FILETYPE_OPTIONS, filetype).isCursor
+        local isAnimated = getOptionEntry(FILETYPE_OPTIONS, filetype).isAnimated
         dialog:modify({ id = ID.hotspotX, visible = isCursor })
         dialog:modify({ id = ID.hotspotY, visible = isCursor })
         dialog:modify({ id = ID.framerate, visible = isAnimated })
@@ -82,8 +83,9 @@ local function show (sprite)
     local function updateFilename ()
         local filename = dialog.data[ID.filename] --[[ @as string ]]
         local filetype = dialog.data[ID.filetype] --[[ @as string ]]
-        local newFilename = app.fs.filePathAndTitle(filename) .. "." .. filetype
+        local newFilename = app.fs.filePathAndTitle(filename) .. "." .. getOptionEntry(FILETYPE_OPTIONS, filetype).value
         dialog.data[ID.filename] = newFilename
+        dialog:modify({ id = ID.filename, filename = newFilename })
     end
 
     dialog
@@ -148,14 +150,23 @@ local function show (sprite)
 
         -- Build params table
         local params = {
-            filetype = getOptionValue(FILETYPE_OPTIONS, dialog.data.filetype),
+            filetype = getOptionEntry(FILETYPE_OPTIONS, dialog.data.filetype).value,
             filename = dialog.data.filename,
-            hotSpotX = dialog.data.hotspotX,
-            hotSpotY = dialog.data.hotspotY,
-            framerate = dialog.data.framerate,
-            tag = getOptionValue(tagOptions, dialog.data.tag),
-            layers = getOptionValue(LAYER_OPTIONS, dialog.data.layers),
+            hotSpotX = dialog.data.hotspotX or 0,
+            hotSpotY = dialog.data.hotspotY or 0,
+            framerate = dialog.data.framerate or 1,
+            tag = getOptionEntry(tagOptions, dialog.data.tag).value,
+            layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
         }
+        print(
+            params.filetype,
+            params.filename,
+            params.hotSpotX,
+            params.hotSpotY,
+            params.framerate,
+            params.tag,
+            params.layers
+        )
 
         -- Validate params
         local valid, validationError = parameter.validate(params, sprite)
