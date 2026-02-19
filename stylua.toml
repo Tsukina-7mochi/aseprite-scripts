@@ -1,0 +1,6 @@
+syntax = "Lua53"
+indent_type = "Spaces"
+space_after_function_names = "Definitions"
+
+[sort_requires]
+enabled = true

@@ -1,19 +1,23 @@
 local describe = require("lib.test").describe
 
-describe("pkg", function()
-    describe("string", function()
+describe("pkg", function ()
+    describe("string", function ()
         require("pkg.string.split_test")
         require("pkg.string.packBits_test")
         require("pkg.string.pack_test")
         require("pkg.string.pascalString_test")
     end)
 
-    describe("type", function()
+    describe("type", function ()
         require("pkg.type.isType_test")
         require("pkg.type.validate_test")
     end)
 
-    describe("riff", function()
+    describe("riff", function ()
         require("pkg.riff.riff_test")
+    end)
+
+    describe("bitmap", function ()
+        require("pkg.bitmap.bitmap_test")
     end)
 end)

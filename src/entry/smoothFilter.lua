@@ -4,31 +4,35 @@ package.manifest = {
     version = "v0.1.1",
     author = "Mooncake Sugar",
     license = "MIT",
-    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/"
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/",
 }
 
-if not app then return end
+if not app then
+    return
+end
 
 -- settings
-local scale    = 9
-local smooth   = 4
+local scale = 9
+local smooth = 4
 local vicinity = 4
 
-local dlg      = Dialog()
-dlg:number { id = "scale", label = "Scale", text = "9" }
+local dlg = Dialog()
+dlg:number({ id = "scale", label = "Scale", text = "9" })
 dlg:newrow()
-dlg:number { id = "smooth", label = "Smooth", text = "4" }
+dlg:number({ id = "smooth", label = "Smooth", text = "4" })
 dlg:newrow()
-dlg:number { id = "vicinity", label = "Background detection", text = "4" }
+dlg:number({ id = "vicinity", label = "Background detection", text = "4" })
 dlg:newrow()
-dlg:button { id = "ok", text = "&OK" }
-dlg:button { id = "cancel", text = "&Cancel" }
+dlg:button({ id = "ok", text = "&OK" })
+dlg:button({ id = "cancel", text = "&Cancel" })
 dlg:show()
 
-if not dlg.data.ok then return end
+if not dlg.data.ok then
+    return
+end
 
-scale    = dlg.data.scale
-smooth   = dlg.data.smooth
+scale = dlg.data.scale
+smooth = dlg.data.smooth
 vicinity = dlg.data.vicinity
 
 if smooth < 0 then
@@ -49,8 +53,8 @@ end
 local sprite = Sprite(app.activeSprite)
 sprite:flatten()
 
-local cel     = sprite.cels[1]
-local image   = cel.image
+local cel = sprite.cels[1]
+local image = cel.image
 local sBounds = sprite.bounds
 local iBounds = cel.bounds
 
@@ -77,7 +81,7 @@ sprite:resize(iBounds.width * scale, iBounds.height * scale)
 image = cel.image -- update image
 
 -- smoothing
-function drawTopLeft(x, y, col)
+function drawTopLeft (x, y, col)
     -- top-left corner of enlarged pixel
     local ox, oy = (iBounds.x + x) * scale, (iBounds.y + y) * scale
     for i = 1, smooth do
@@ -90,7 +94,7 @@ function drawTopLeft(x, y, col)
     end
 end
 
-function drawTopRight(x, y, col)
+function drawTopRight (x, y, col)
     -- top-right corner of enlarged pixel
     local ox, oy = (iBounds.x + x + 1) * scale - 1, (iBounds.y + y) * scale
     for i = 1, smooth do
@@ -103,7 +107,7 @@ function drawTopRight(x, y, col)
     end
 end
 
-function drawBottomLeft(x, y, col)
+function drawBottomLeft (x, y, col)
     -- bottom-left corner of enlarged pixel
     local ox, oy = (iBounds.x + x) * scale, (iBounds.y + y + 1) * scale
     for i = 1, smooth do
@@ -116,7 +120,7 @@ function drawBottomLeft(x, y, col)
     end
 end
 
-function drawBottomRight(x, y, col)
+function drawBottomRight (x, y, col)
     -- bottom-right corner of enlarged pixel
     local ox, oy = (iBounds.x + x + 1) * scale - 1, (iBounds.y + y + 1) * scale - 1
     for i = 1, smooth do
@@ -134,22 +138,22 @@ for y = 0, iBounds.height - 2 do
         -- process by 2x2 square
         local pTopLeft, pTopRight, pBottomLeft, pBottomRight = -1, -1, -1, -1
 
-        pTopLeft                                             = imgData[y + 1][x + 1]
-        pTopRight                                            = imgData[y + 1][x + 2]
-        pBottomLeft                                          = imgData[y + 2][x + 1]
-        pBottomRight                                         = imgData[y + 2][x + 2]
+        pTopLeft = imgData[y + 1][x + 1]
+        pTopRight = imgData[y + 1][x + 2]
+        pBottomLeft = imgData[y + 2][x + 1]
+        pBottomRight = imgData[y + 2][x + 2]
 
         -- AB
         -- CA
         if pTopLeft == pBottomRight and pTopRight ~= pBottomLeft then
             drawBottomLeft(x + 1, y, pTopLeft) -- B
-            drawTopRight(x, y + 1, pTopLeft)   -- C
+            drawTopRight(x, y + 1, pTopLeft) -- C
         end
 
         -- BA
         -- AC
         if pTopRight == pBottomLeft and pTopLeft ~= pBottomRight then
-            drawBottomRight(x, y, pTopRight)     -- B
+            drawBottomRight(x, y, pTopRight) -- B
             drawTopLeft(x + 1, y + 1, pTopRight) -- C
         end
 

@@ -4,15 +4,17 @@ package.manifest = {
     version = "v1.3.2",
     author = "Mooncake Sugar",
     license = "MIT",
-    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/"
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/",
 }
 
-if not app then return end
+if not app then
+    return
+end
 
 --- Return whether given number is an integer
 ---@param val any
 ---@return boolean
-function IsInteger(val)
+function IsInteger (val)
     if type(val) ~= "number" then
         return false
     end
@@ -23,7 +25,7 @@ end
 --- Compress binary data with PackBits
 ---@param data string
 ---@return string
-function PackBits(data)
+function PackBits (data)
     if #data == 0 then
         return data
     end
@@ -58,7 +60,7 @@ function PackBits(data)
                 stack = currentData .. stack
             else
                 -- write out buffer contents and reset state
-                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
                 stack = currentData
                 state = -1
             end
@@ -68,7 +70,7 @@ function PackBits(data)
                 stack = currentData .. stack
             else
                 -- write out buffer contents and change state
-                result = result .. ('B'):pack(#stack - 2) .. stack:sub(2, -1):reverse()
+                result = result .. ("B"):pack(#stack - 2) .. stack:sub(2, -1):reverse()
                 stack = currentData .. currentData
                 state = 0
             end
@@ -77,9 +79,9 @@ function PackBits(data)
         if #stack > 0x7F then
             -- write out buffer contents
             if state == 0 then
-                result = result .. ('B'):pack(256 - (#stack - 1)) .. stackTop
+                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
             elseif state == 1 or state == -1 then
-                result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+                result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
             end
 
             -- reset state
@@ -93,9 +95,9 @@ function PackBits(data)
     if #stack > 0 then
         -- write out buffer contents
         if state == 0 then
-            result = result .. ('B'):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
+            result = result .. ("B"):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
         elseif state == 1 or state == -1 then
-            result = result .. ('B'):pack(#stack - 1) .. stack:reverse()
+            result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
         end
     end
 
@@ -103,22 +105,22 @@ function PackBits(data)
 end
 
 ---@param data integer
-function PackU32BE(data)
+function PackU32BE (data)
     return (">I4"):pack(data)
 end
 
 ---@param data integer
-function PackI32BE(data)
+function PackI32BE (data)
     return (">i4"):pack(data)
 end
 
 ---@param data integer
-function PackU16BE(data)
+function PackU16BE (data)
     return (">I2"):pack(data)
 end
 
 ---@param data integer
-function PackU8(data)
+function PackU8 (data)
     return ("B"):pack(data)
 end
 
@@ -126,7 +128,7 @@ end
 ---@param padBase integer
 ---@param maxLength integer
 ---@return string
-function ToPascalString(str, padBase, maxLength)
+function ToPascalString (str, padBase, maxLength)
     local str_ = ""
     if type(maxLength) == "number" then
         str_ = str:sub(1, maxLength - 1)
@@ -140,7 +142,7 @@ end
 ---@param end_ integer IS included
 ---@param step integer | nil default=1
 ---@return integer[]
-function RangeList(begin, end_, step)
+function RangeList (begin, end_, step)
     if step == nil then
         step = 1
     end
@@ -159,27 +161,27 @@ end
 ---@param frameNum integer | integer[]
 ---@return boolean
 ---@return string | nil
-function ExportToPsd(sprite, filename, frameNum)
+function ExportToPsd (sprite, filename, frameNum)
     local blendModeTable = {
-        [BlendMode.NORMAL]         = "norm",
-        [BlendMode.MULTIPLY]       = "mul ",
-        [BlendMode.SCREEN]         = "scrn",
-        [BlendMode.OVERLAY]        = "over",
-        [BlendMode.DARKEN]         = "dark",
-        [BlendMode.LIGHTEN]        = "lite",
-        [BlendMode.COLOR_DODGE]    = "div ",
-        [BlendMode.COLOR_BURN]     = "idiv",
-        [BlendMode.HARD_LIGHT]     = "hLit",
-        [BlendMode.SOFT_LIGHT]     = "sLit",
-        [BlendMode.DIFFERENCE]     = "diff",
-        [BlendMode.EXCLUSION]      = "smud",
-        [BlendMode.HSL_HUE]        = "hue ",
+        [BlendMode.NORMAL] = "norm",
+        [BlendMode.MULTIPLY] = "mul ",
+        [BlendMode.SCREEN] = "scrn",
+        [BlendMode.OVERLAY] = "over",
+        [BlendMode.DARKEN] = "dark",
+        [BlendMode.LIGHTEN] = "lite",
+        [BlendMode.COLOR_DODGE] = "div ",
+        [BlendMode.COLOR_BURN] = "idiv",
+        [BlendMode.HARD_LIGHT] = "hLit",
+        [BlendMode.SOFT_LIGHT] = "sLit",
+        [BlendMode.DIFFERENCE] = "diff",
+        [BlendMode.EXCLUSION] = "smud",
+        [BlendMode.HSL_HUE] = "hue ",
         [BlendMode.HSL_SATURATION] = "sat ",
-        [BlendMode.HSL_COLOR]      = "colr",
+        [BlendMode.HSL_COLOR] = "colr",
         [BlendMode.HSL_LUMINOSITY] = "lum ",
-        [BlendMode.ADDITION]       = "lddg",
-        [BlendMode.SUBTRACT]       = "fsub",
-        [BlendMode.DIVIDE]         = "fdiv",
+        [BlendMode.ADDITION] = "lddg",
+        [BlendMode.SUBTRACT] = "fsub",
+        [BlendMode.DIVIDE] = "fdiv",
     }
 
     ---Returns RGBA pixel color at the given point in the given image
@@ -190,7 +192,7 @@ function ExportToPsd(sprite, filename, frameNum)
     ---@return integer green
     ---@return integer blue
     ---@return integer alpha
-    local function getRGBColor(image, x, y)
+    local function getRGBColor (image, x, y)
         local pixelValue = image:getPixel(x, y)
 
         if image.colorMode == ColorMode.RGB then
@@ -225,7 +227,7 @@ function ExportToPsd(sprite, filename, frameNum)
     ---@param bounds Rectangle
     ---@param x integer
     ---@param y integer
-    local function pointInBounds(bounds, x, y)
+    local function pointInBounds (bounds, x, y)
         return bounds.x <= x and x < bounds.x + bounds.width and bounds.y <= y and y < bounds.y + bounds.height
     end
 
@@ -238,14 +240,14 @@ function ExportToPsd(sprite, filename, frameNum)
     -- File Header Section
     -- ==============================
     local fileHeaderData = table.concat({
-        "8BPS",                   -- signature
-        PackU16BE(1),             -- version = 1
-        (">I6"):pack(0),          -- resevered = 0
-        PackU16BE(4),             -- channels = 4 (RGBA)
+        "8BPS", -- signature
+        PackU16BE(1), -- version = 1
+        (">I6"):pack(0), -- resevered = 0
+        PackU16BE(4), -- channels = 4 (RGBA)
         PackU32BE(sprite.height), -- height
-        PackU32BE(sprite.width),  -- width
-        PackU16BE(8),             -- depth = 8
-        PackU16BE(3),             -- color mode = 3 (RGB)
+        PackU32BE(sprite.width), -- width
+        PackU16BE(8), -- depth = 8
+        PackU16BE(3), -- color mode = 3 (RGB)
     })
     file:write(fileHeaderData)
 
@@ -271,7 +273,7 @@ function ExportToPsd(sprite, filename, frameNum)
     ---@param image Image
     ---@return string
     ---@return {r: integer, g: integer, b: integer, a: integer}
-    local function createImageData(image)
+    local function createImageData (image)
         local sizeBufferR = {} --[[ @type string[] ]]
         local sizeBufferG = {} --[[ @type string[] ]]
         local sizeBufferB = {} --[[ @type string[] ]]
@@ -339,10 +341,18 @@ function ExportToPsd(sprite, filename, frameNum)
 
         local data = table.concat({
             -- compression = 1(RLE), size, data
-            PackU16BE(1), sizeDataR, dataR,
-            PackU16BE(1), sizeDataG, dataG,
-            PackU16BE(1), sizeDataB, dataB,
-            PackU16BE(1), sizeDataA, dataA,
+            PackU16BE(1),
+            sizeDataR,
+            dataR,
+            PackU16BE(1),
+            sizeDataG,
+            dataG,
+            PackU16BE(1),
+            sizeDataB,
+            dataB,
+            PackU16BE(1),
+            sizeDataA,
+            dataA,
         })
 
         return data, { r = sizeR, g = sizeG, b = sizeB, a = sizeA }
@@ -354,7 +364,7 @@ function ExportToPsd(sprite, filename, frameNum)
     ---@return string layerRecord
     ---@return string imageData
     ---@return integer layerCount
-    local function createLayerRecordAndImageData(layerGroup, frameNum, asGroup)
+    local function createLayerRecordAndImageData (layerGroup, frameNum, asGroup)
         local emptyImageData = "\x00\x00\x00\x00\x00\x00\x00\x00"
         local emptyImageDataSize = { r = 2, g = 2, b = 2, a = 2 }
 
@@ -383,20 +393,20 @@ function ExportToPsd(sprite, filename, frameNum)
                 (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
                 (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
                 (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                "8BIM",                              -- blend mode signature
-                "norm",                              -- blend mode
-                PackU8(255),                         -- opacity
-                PackU8(0),                           -- clipping
-                PackU8(flags),                       -- flags
-                PackU8(0),                           -- filler
+                "8BIM", -- blend mode signature
+                "norm", -- blend mode
+                PackU8(255), -- opacity
+                PackU8(0), -- clipping
+                PackU8(flags), -- flags
+                PackU8(0), -- filler
                 PackU32BE(4 + 4 + #closerName + 16), -- extra data field size
-                PackU32BE(0),                        -- layer mask: size = 0
-                PackU32BE(0),                        -- blending ranges data: size = 0
-                closerName,                          -- layer name
-                "8BIM",                              -- additional layer information: signature
-                "lsct",                              -- additional layer information: key = lsct (section devider)
-                PackU32BE(4),                        -- additional layer information: length = 4
-                PackU32BE(3),                        -- additional layer information: data = 3 (bounding section devider)
+                PackU32BE(0), -- layer mask: size = 0
+                PackU32BE(0), -- blending ranges data: size = 0
+                closerName, -- layer name
+                "8BIM", -- additional layer information: signature
+                "lsct", -- additional layer information: key = lsct (section devider)
+                PackU32BE(4), -- additional layer information: length = 4
+                PackU32BE(3), -- additional layer information: data = 3 (bounding section devider)
             })
             idBuffer[#idBuffer + 1] = emptyImageData
         end
@@ -426,16 +436,16 @@ function ExportToPsd(sprite, filename, frameNum)
                         (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
                         (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
                         (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                        "8BIM",                        -- blend mode signature
-                        "norm",                        -- blend mode
-                        PackU8(layer.opacity),         -- opacity
-                        PackU8(0),                     -- clipping
-                        PackU8(flags),                 -- flags
-                        PackU8(0),                     -- filler
+                        "8BIM", -- blend mode signature
+                        "norm", -- blend mode
+                        PackU8(layer.opacity), -- opacity
+                        PackU8(0), -- clipping
+                        PackU8(flags), -- flags
+                        PackU8(0), -- filler
                         PackU32BE(4 + 4 + #layerName), -- extra data field size
-                        PackU32BE(0),                  -- layer mask: size = 0
-                        PackU32BE(0),                  -- blending ranges data: size = 0
-                        layerName,                     -- layer name
+                        PackU32BE(0), -- layer mask: size = 0
+                        PackU32BE(0), -- blending ranges data: size = 0
+                        layerName, -- layer name
                     })
                     idBuffer[#idBuffer + 1] = emptyImageData
                 else
@@ -446,33 +456,33 @@ function ExportToPsd(sprite, filename, frameNum)
                     local opacity = math.floor((layer.opacity / 255) * cel.opacity)
 
                     lrBuffer[#lrBuffer + 1] = table.concat({
-                        PackI32BE(cel.bounds.y),                     -- top
-                        PackI32BE(cel.bounds.x),                     -- left
+                        PackI32BE(cel.bounds.y), -- top
+                        PackI32BE(cel.bounds.x), -- left
                         PackI32BE(cel.bounds.y + cel.bounds.height), -- bottom
-                        PackI32BE(cel.bounds.x + cel.bounds.width),  -- right
-                        PackU16BE(4),                                -- channel count
+                        PackI32BE(cel.bounds.x + cel.bounds.width), -- right
+                        PackU16BE(4), -- channel count
                         -- channel information (id, size) x4
                         (">I2>I4"):pack(0x0000, imageDataSize.r),
                         (">I2>I4"):pack(0x0001, imageDataSize.g),
                         (">I2>I4"):pack(0x0002, imageDataSize.b),
                         (">I2>I4"):pack(0xFFFF, imageDataSize.a),
-                        "8BIM",                              -- blend mode signature
+                        "8BIM", -- blend mode signature
                         blendModeTable[cel.layer.blendMode], -- blend mode
-                        PackU8(opacity),                     -- opacity
-                        PackU8(0),                           -- clipping
-                        PackU8(flags),                       -- flags
-                        PackU8(0),                           -- filler
-                        PackU32BE(4 + 4 + #layerName),       -- extra data field size: TBD
-                        PackU32BE(0),                        -- layer mask: size = 0
-                        PackU32BE(0),                        -- blending ranges data: size = 0
-                        layerName,                           -- layer name
+                        PackU8(opacity), -- opacity
+                        PackU8(0), -- clipping
+                        PackU8(flags), -- flags
+                        PackU8(0), -- filler
+                        PackU32BE(4 + 4 + #layerName), -- extra data field size: TBD
+                        PackU32BE(0), -- layer mask: size = 0
+                        PackU32BE(0), -- blending ranges data: size = 0
+                        layerName, -- layer name
                     })
                     idBuffer[#idBuffer + 1] = imageData
                 end
             else
                 -- a group: encode group recursively
-                local childLrData, childIdData, childLayerCount = createLayerRecordAndImageData(layer.layers, frameNum,
-                    layer)
+                local childLrData, childIdData, childLayerCount =
+                    createLayerRecordAndImageData(layer.layers, frameNum, layer)
                 lrBuffer[#lrBuffer + 1] = childLrData
                 idBuffer[#idBuffer + 1] = childIdData
 
@@ -505,20 +515,20 @@ function ExportToPsd(sprite, filename, frameNum)
                 (">I2>I4"):pack(0x0001, emptyImageDataSize.g),
                 (">I2>I4"):pack(0x0002, emptyImageDataSize.b),
                 (">I2>I4"):pack(0xFFFF, emptyImageDataSize.a),
-                "8BIM",                             -- blend mode signature
-                "norm",                             -- blend mode
-                PackU8(255),                        -- opacity
-                PackU8(0),                          -- clipping
-                PackU8(flags),                      -- flags
-                PackU8(0),                          -- filler
+                "8BIM", -- blend mode signature
+                "norm", -- blend mode
+                PackU8(255), -- opacity
+                PackU8(0), -- clipping
+                PackU8(flags), -- flags
+                PackU8(0), -- filler
                 PackU32BE(4 + 4 + #layerName + 16), -- extra data field size
-                PackU32BE(0),                       -- layer mask: size = 0
-                PackU32BE(0),                       -- blending ranges data: size = 0
-                layerName,                          -- layer name
-                "8BIM",                             -- additional layer information: signature
-                "lsct",                             -- additional layer information: key = lsct (section devider)
-                PackU32BE(4),                       -- additional layer information: length = 4
-                PackU32BE(additionalInfoData),      -- additional layer information: data = 3 (bounding section devider)
+                PackU32BE(0), -- layer mask: size = 0
+                PackU32BE(0), -- blending ranges data: size = 0
+                layerName, -- layer name
+                "8BIM", -- additional layer information: signature
+                "lsct", -- additional layer information: key = lsct (section devider)
+                PackU32BE(4), -- additional layer information: length = 4
+                PackU32BE(additionalInfoData), -- additional layer information: data = 3 (bounding section devider)
             })
             idBuffer[#idBuffer + 1] = emptyImageData
         end
@@ -535,11 +545,13 @@ function ExportToPsd(sprite, filename, frameNum)
         idBuffer[#idBuffer + 1] = idData
         layerCount = layerCount + layerCount_
     else
-        for _, index in ipairs(frameNum --[[ @as integer[] ]]) do
+        for _, index in
+            ipairs(frameNum --[[ @as integer[] ]])
+        do
             local lrData, idData, layerCount_ = createLayerRecordAndImageData(sprite.layers, index, {
                 name = "Frame " .. index,
                 isVisible = (index == frameNum[1]),
-                isExpanded = false
+                isExpanded = false,
             })
             lrBuffer[#lrBuffer + 1] = lrData
             idBuffer[#idBuffer + 1] = idData
@@ -556,10 +568,10 @@ function ExportToPsd(sprite, filename, frameNum)
     end
     local layerAndMaskData = table.concat({
         PackU32BE(4 + layerInfoSize), -- size
-        PackU32BE(layerInfoSize),     -- layer info: size TBD
-        PackU16BE(layerCount),        -- layer info: layer count
-        lrData,                       -- layer records
-        idData,                       -- channel image data
+        PackU32BE(layerInfoSize), -- layer info: size TBD
+        PackU16BE(layerCount), -- layer info: layer count
+        lrData, -- layer records
+        idData, -- channel image data
     })
     file:write(layerAndMaskData)
     if padLayerAndMask then
@@ -675,7 +687,7 @@ if app.apiVersion < 1 then
         app.alert({
             title = "Export Failed",
             text = "This script requires Aseprite v1.2.10-beta3 or above.",
-            buttons = "OK"
+            buttons = "OK",
         })
     else
         io.stderr:write("Export failed: this script requires Aseprite v1.2.10-beta3 or above.")
@@ -690,7 +702,7 @@ if not sprite then
         app.alert({
             title = "Export Failed",
             text = "No sprite selected.",
-            buttons = "OK"
+            buttons = "OK",
         })
     else
         io.stderr:write("Export failed: No sprite to export.")
@@ -699,7 +711,7 @@ if not sprite then
     return
 end
 
-local function getOptionsFromDialog()
+local function getOptionsFromDialog ()
     ---@type string[]
     local frameList = {}
     ---@type {[string]: integer | integer[]}
@@ -719,33 +731,39 @@ local function getOptionsFromDialog()
     end
 
     local dialog = Dialog()
-    dialog:file {
-        id = "filename",
-        label = "Filename",
-        title = "Save as...",
-        save = true,
-        filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd",
-        filetypes = { "psd" },
-    }:combobox {
-        id = "frame",
-        label = "Frame",
-        option = frameList[1],
-        options = frameList,
-    }:check {
-        id = "showCompleated",
-        label = "",
-        text = "Show dialog when succeeded",
-        selected = true
-    }:button {
-        id = "ok",
-        text = "&Export",
-        focus = true
-    }:button {
-        id = "cancel",
-        text = "&Cancel"
-    }:label {
-        text = "version " .. tostring(package.manifest.version)
-    }
+    dialog
+        :file({
+            id = "filename",
+            label = "Filename",
+            title = "Save as...",
+            save = true,
+            filename = app.fs.filePathAndTitle(sprite.filename) .. ".psd",
+            filetypes = { "psd" },
+        })
+        :combobox({
+            id = "frame",
+            label = "Frame",
+            option = frameList[1],
+            options = frameList,
+        })
+        :check({
+            id = "showCompleated",
+            label = "",
+            text = "Show dialog when succeeded",
+            selected = true,
+        })
+        :button({
+            id = "ok",
+            text = "&Export",
+            focus = true,
+        })
+        :button({
+            id = "cancel",
+            text = "&Cancel",
+        })
+        :label({
+            text = "version " .. tostring(package.manifest.version),
+        })
     dialog:show()
 
     local filename = dialog.data.filename --[[ @as string ]]
@@ -761,7 +779,7 @@ local function getOptionsFromDialog()
     return filename, frameIndex, showCompleated, proceed
 end
 
-local function getOptionsFromCLIArgument()
+local function getOptionsFromCLIArgument ()
     ---@type string | nil
     local filename = nil
     ---@type integer | integer[] | nil
@@ -808,14 +826,17 @@ local function getOptionsFromCLIArgument()
         io.stderr:write("Export failed: target frame index is required.")
     end
 
-    return filename --[[ @as string ]], frameIndex --[[ @as integer | integer[] ]], true, proceed
+    return filename, --[[ @as string ]]
+        frameIndex, --[[ @as integer | integer[] ]]
+        true,
+        proceed
 end
 
 if not app.isUIAvailable then
     print("Export as psd: version " .. tostring(package.manifest.version))
 end
 
-local function getOptions()
+local function getOptions ()
     if app.isUIAvailable then
         return getOptionsFromDialog()
     else
@@ -835,7 +856,7 @@ if not succeeded then
         app.alert({
             title = "Export Failed",
             text = message,
-            buttons = "OK"
+            buttons = "OK",
         })
     else
         io.stderr:write("Export failed: " .. message)
@@ -850,7 +871,7 @@ if showCompleated then
         app.alert({
             title = "Export Succeeded",
             text = "PSD successfully exported to " .. filename,
-            buttons = "OK"
+            buttons = "OK",
         })
     else
         print("PSD successfully exported to " .. filename)

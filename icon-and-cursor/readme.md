@@ -13,11 +13,13 @@ This script exports sprite as windows icon and cursor files, `.ico` and `.cur`, 
 
 [Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/icon-and-cursor/Export%20as%20ico%20cur%20ani.lua)
 
-## Others
-
-- This script is provided with [MIT License](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/LICENSE)
-
 ## Change Log
+
+### v0.2.0 (reimplementation)
+
+- Fixed dialog validator behavior.
+- Reduced exported icon file size.
+- Support CLI.
 
 ### v0.1.1
 

@@ -4,10 +4,12 @@ package.manifest = {
     version = "v0.1.1",
     author = "Mooncake Sugar",
     license = "MIT",
-    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/lcd-pixel-filter/"
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/lcd-pixel-filter/",
 }
 
-if not app then return end
+if not app then
+    return
+end
 
 -- function alias
 local pc = app.pixelColor
@@ -22,50 +24,52 @@ local colorTable = {
     R = "G",
     G = "B",
     B = "K",
-    K = "R"
+    K = "R",
 }
 local buttons = { "R", "G", "B", "R", "G", "B", "R", "G", "B" }
 
 local dialog = Dialog("LCD Pixel Filter")
 
 for i = 1, #buttons do
-    dialog:button {
+    dialog:button({
         id = "button" .. i,
         text = buttons[i],
-        onclick = function()
+        onclick = function ()
             buttons[i] = colorTable[buttons[i]]
-            dialog:modify {
+            dialog:modify({
                 id = "button" .. i,
-                text = buttons[i]
-            }
-        end
-    }
+                text = buttons[i],
+            })
+        end,
+    })
 
     if i % 3 == 0 then
         dialog:newrow()
     end
 end
 
-dialog:button {
-    id = "ok",
-    text = "&OK",
-    focus = true
-}:button {
-    id = "cancel",
-    text = "&Cancel"
-}
+dialog
+    :button({
+        id = "ok",
+        text = "&OK",
+        focus = true,
+    })
+    :button({
+        id = "cancel",
+        text = "&Cancel",
+    })
 
 dialog:show()
 
-
-if not dialog.data.ok then return end
-
+if not dialog.data.ok then
+    return
+end
 
 local sprite = Sprite(app.activeSprite)
 sprite:flatten()
 
-local cel     = sprite.cels[1]
-local image   = cel.image
+local cel = sprite.cels[1]
+local image = cel.image
 local sBounds = sprite.bounds
 local iBounds = cel.bounds
 
@@ -104,7 +108,6 @@ end
 -- scale
 sprite:resize(iBounds.width * 3, iBounds.height * 3)
 
-
 -- draw
 for i = 1, #sprite.cels do
     cel = sprite.cels[i]
@@ -116,7 +119,7 @@ for i = 1, #sprite.cels do
                 R = pc.rgba(pc.rgbaR(imgData[i][y + 1][x + 1]), 0, 0),
                 G = pc.rgba(0, pc.rgbaG(imgData[i][y + 1][x + 1]), 0),
                 B = pc.rgba(0, 0, pc.rgbaB(imgData[i][y + 1][x + 1])),
-                K = pc.rgba(0, 0, 0)
+                K = pc.rgba(0, 0, 0),
             }
             image:drawPixel(x * 3 + 0, y * 3 + 0, colors[buttons[1]])
             image:drawPixel(x * 3 + 1, y * 3 + 0, colors[buttons[2]])

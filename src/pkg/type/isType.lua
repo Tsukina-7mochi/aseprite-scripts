@@ -1,7 +1,7 @@
 --- Return true if given value is an integer
 ---@param val any
 ---@return boolean
-local function isInteger(val)
+local function isInteger (val)
     if type(val) ~= "number" then
         return false
     end

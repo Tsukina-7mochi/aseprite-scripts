@@ -2,7 +2,7 @@
 ---@param str string string to split
 ---@param sep string separator character classes
 ---@return string[]
-local function split(str, sep)
+local function split (str, sep)
     local result = {} --[[ @as string[] ]]
     for s in str:gmatch("([^" .. sep .. "]+)") do
         table.insert(result, s)
@@ -11,7 +11,7 @@ local function split(str, sep)
     return result
 end
 
-local function inject()
+local function inject ()
     string.split = split
 end
 

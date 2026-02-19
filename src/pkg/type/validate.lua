@@ -11,7 +11,7 @@ local isInteger = require("pkg.type.isType").isInteger
 ---@param value any
 ---@param validator Validator
 ---@return boolean
-local function isValid(value, validator)
+local function isValid (value, validator)
     if validator.type == "value" then
         return value == validator.value
     elseif validator.type == "integer" then

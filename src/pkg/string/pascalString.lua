@@ -3,7 +3,7 @@
 ---@param align? number pad result string with 0 to make result length to be multiple of `align`
 ---@param max_length? number max length of result string
 ---@return string
-local toPascalString = function(str, align, max_length)
+local toPascalString = function (str, align, max_length)
     if type(max_length) == "number" then
         str = str:sub(1, max_length - 1)
     end
