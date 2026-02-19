@@ -7,6 +7,7 @@
 ---@field framerate integer
 ---@field tag string | integer | nil
 ---@field layers "visible" | "selected"
+---@field showCompleted boolean
 
 ---Creates default parameters for icon/cursor export
 ---@param sprite Sprite
@@ -22,9 +23,9 @@ local function default (sprite)
         hotSpotX = 0,
         hotSpotY = 0,
         framerate = defaultFramerate,
-        showCompleted = true,
         tag = nil,
         layers = "visible",
+        showCompleted = true,
     }
 end
 
@@ -126,6 +127,11 @@ local function validate (params, sprite)
     end
     if params.layers ~= "visible" and params.layers ~= "selected" then
         return false, "layers must be 'visible' or 'selected'"
+    end
+
+    -- Validate showCompleted
+    if type(params.showCompleted) ~= "boolean" then
+        return false, "showCompleted must be a boolean"
     end
 
     return true, nil

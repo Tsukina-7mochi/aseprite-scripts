@@ -25,6 +25,7 @@ local ID = {
     filename = "filename",
     ok = "ok",
     cancel = "cancel",
+    showCompleted = "showCompleted",
 }
 
 ---@param options { option: string, value: any }[]
@@ -139,6 +140,11 @@ local function show (sprite)
             save = true,
             filename = savedData[ID.filename] or defaultFilename,
         })
+        :check({
+            id = ID.showCompleted,
+            text = "Show completion dialog",
+            selected = savedData[ID.showCompleted] ~= false,
+        })
         -- Buttons
         :button({ id = ID.ok, text = "&Export", focus = true })
         :button({ id = ID.cancel, text = "&Cancel" })
@@ -161,6 +167,7 @@ local function show (sprite)
             framerate = dialog.data.framerate or 1,
             tag = getOptionEntry(tagOptions, dialog.data.tag).value,
             layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
+            showCompleted = dialog.data.showCompleted,
         }
 
         -- Validate params

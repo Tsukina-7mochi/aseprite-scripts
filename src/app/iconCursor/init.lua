@@ -99,6 +99,10 @@ local function main ()
     file:write(fileData)
 
     file:close()
+
+    if app.isUIAvailable and params.showCompleted then
+        util.alert({ title = "Export Complete", text = "Exported to " .. params.filename })
+    end
 end
 
 return { main = main }
