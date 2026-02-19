@@ -12,6 +12,7 @@ local LAYER_OPTIONS = {
     { option = "Selected", value = "selected" },
 }
 local TAG_OPTION_PREFIX = "Tag: "
+local FRAME_OPTION_PREFIX = "Frame: "
 local TAG_OPTION_ALL = "All Frames"
 
 local ID = {
@@ -55,6 +56,9 @@ local function show (sprite)
     local tagOptions = { { option = TAG_OPTION_ALL, value = nil } }
     for _, tag in ipairs(sprite.tags) do
         table.insert(tagOptions, { option = TAG_OPTION_PREFIX .. tag.name, value = tag.name })
+    end
+    for _, frame in ipairs(sprite.frames) do
+        table.insert(tagOptions, { option = FRAME_OPTION_PREFIX .. frame.frameNumber, value = frame.frameNumber })
     end
 
     local savedData = {}
@@ -158,15 +162,6 @@ local function show (sprite)
             tag = getOptionEntry(tagOptions, dialog.data.tag).value,
             layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
         }
-        print(
-            params.filetype,
-            params.filename,
-            params.hotSpotX,
-            params.hotSpotY,
-            params.framerate,
-            params.tag,
-            params.layers
-        )
 
         -- Validate params
         local valid, validationError = parameter.validate(params, sprite)

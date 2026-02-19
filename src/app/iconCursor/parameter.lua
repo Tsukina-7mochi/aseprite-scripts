@@ -5,7 +5,7 @@
 ---@field hotSpotX integer
 ---@field hotSpotY integer
 ---@field framerate integer
----@field tag string?
+---@field tag string | integer | nil
 ---@field layers "visible" | "selected"
 
 ---Creates default parameters for icon/cursor export
@@ -89,10 +89,10 @@ local function validate (params, sprite)
         return false, "framerate must be >= 1"
     end
 
-    -- Validate tag (nil means all frames, string means specific tag)
-    if params.tag ~= nil then
+    -- Validate tag (nil means all frames, string means specific tag, number means frame index)
+    if type(params.tag) == "string" then
         if type(params.tag) ~= "string" then
-            return false, "tag must be a string or nil"
+            return false, "tag must be a string, integer or nil"
         end
         if params.tag == "" then
             return false, "tag cannot be empty string"
@@ -107,6 +107,16 @@ local function validate (params, sprite)
         end
         if not tagFound then
             return false, "tag must be nil or a valid tag name"
+        end
+    elseif type(params.tag) == "number" then
+        if params.tag ~= math.floor(params.tag) then
+            return false, "tag must be an integer, string, or nil"
+        end
+        if params.tag < 1 then
+            return false, "tag must be >= 1 if it's a number"
+        end
+        if params.tag > #sprite.frames then
+            return false, "tag must be <= number of frames (" .. #sprite.frames .. ") if it's a number"
         end
     end
 

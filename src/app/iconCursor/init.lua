@@ -43,10 +43,12 @@ local function main ()
     local targetFrames = {}
     if params.tag == nil then
         targetFrames = sprite.frames
+    elseif type(params.tag) == "number" then
+        targetFrames = { sprite.frames[params.tag] }
     else
         local tag = util.sprite.getTag(sprite, params.tag)
         if tag == nil then
-            util.alert({ text = "The specified tag was not found." })
+            error("The specified tag was not found.")
             return
         end
 
