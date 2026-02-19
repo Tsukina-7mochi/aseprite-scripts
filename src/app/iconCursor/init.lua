@@ -4,15 +4,43 @@ local createIcon = require("app.iconCursor.icon").create
 local createAnimCursor = require("app.iconCursor.anim-cursor").create
 local util = require("pkg.asepriteUtil")
 
+local function getParamsFromArgs ()
+    local params = parameter.default(app.sprite)
+    if app.params.filetype ~= nil then
+        params.filetype = app.params.filetype
+    end
+    if app.params.filename ~= nil then
+        params.filename = app.params.filename
+    end
+    if app.params["hot-spot-x"] ~= nil then
+        params.hotSpotX = assert(tonumber(app.params["hot-spot-x"]))
+    end
+    if app.params["hot-spot-y"] ~= nil then
+        params.hotSpotY = assert(tonumber(app.params["hot-spot-y"]))
+    end
+    if app.params.framerate ~= nil then
+        params.framerate = assert(tonumber(app.params.framerate))
+    end
+    if app.params.layers ~= nil then
+        params.layers = app.params.layers
+    end
+    if app.params.tag ~= nil then
+        params.tag = tonumber(app.params.tag) or app.params.tag
+    end
+
+    local valid, validationError = parameter.validate(params, app.sprite)
+    if not valid then
+        error("Error: " .. (validationError or "Unknown validation error"))
+    end
+
+    return params
+end
+
 local function getParams ()
     if app.isUIAvailable then
         return dialog.show(app.sprite)
     else
-        local valid, validationError = parameter.validate(app.params, app.sprite)
-        if not valid then
-            error("Error: " .. (validationError or "Unknown validation error"))
-        end
-        return app.params
+        return getParamsFromArgs()
     end
 end
 
