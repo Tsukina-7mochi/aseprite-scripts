@@ -119,17 +119,17 @@ local function show (sprite)
         :number({
             id = ID.framerate,
             label = "Framerate (1/60s)",
-            text = tostring(savedData[ID.framerate]) or tostring(defaultFramerate),
+            text = tostring(savedData[ID.framerate] or defaultFramerate),
         })
         :number({
             id = ID.hotspotX,
             label = "Hot Spot",
-            text = tostring(savedData[ID.hotspotX]) or "0",
+            text = tostring(savedData[ID.hotspotX] or "0"),
             decimals = 0,
         })
         :number({
             id = ID.hotspotY,
-            text = tostring(savedData[ID.hotspotY]) or "0",
+            text = tostring(savedData[ID.hotspotY] or "0"),
             decimals = 0,
         })
         :separator({ text = "Output" })
