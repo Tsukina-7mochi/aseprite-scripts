@@ -1,0 +1,24 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+insert_final_newline = true
+trim_trailing_whitespace = true
+end_of_line = lf
+charset = utf-8
+
+[*.lua]
+indent_style = space
+indent_size = 4
+
+[src/**.lua]
+indent_style = space
+indent_size = 4
+
+[**.{json,yaml,yml,toml}]
+indent_style = space
+indent_size = 4
+
+[Makefile]
+indent_style = tab
