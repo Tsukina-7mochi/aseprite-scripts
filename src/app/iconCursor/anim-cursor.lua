@@ -19,12 +19,13 @@ end
 ---@param params IconCursorParams
 ---@param targetLayers Layer[]
 ---@param targetFrames Frame[]
+---@param sizes Size[]
 ---@return string
-local function createAnimCursor (params, targetLayers, targetFrames)
+local function createAnimCursor (params, targetLayers, targetFrames, sizes)
     ---@type RiffChunk[]
     local iconChunks = {}
     for _, frame in ipairs(targetFrames) do
-        local icon = createIcon(params, targetLayers, { frame })
+        local icon = createIcon(params, targetLayers, { frame }, sizes)
 
         table.insert(iconChunks, riff.chunk("icon", icon))
     end

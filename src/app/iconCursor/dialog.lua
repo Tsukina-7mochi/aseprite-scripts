@@ -26,6 +26,7 @@ local ID = {
     ok = "ok",
     cancel = "cancel",
     showCompleted = "showCompleted",
+    multiscale = "multiscale",
 }
 
 ---@param options { option: string, value: any }[]
@@ -132,6 +133,11 @@ local function show (sprite)
             text = tostring(savedData[ID.hotspotY] or "0"),
             decimals = 0,
         })
+        :check({
+            id = ID.multiscale,
+            text = "Multiscale",
+            selected = savedData[ID.multiscale] == true,
+        })
         :separator({ text = "Output" })
         :file({
             id = ID.filename,
@@ -168,6 +174,7 @@ local function show (sprite)
             tag = getOptionEntry(tagOptions, dialog.data.tag).value,
             layers = getOptionEntry(LAYER_OPTIONS, dialog.data.layers).value,
             showCompleted = dialog.data.showCompleted,
+            multiscale = dialog.data.multiscale,
         }
 
         -- Validate params

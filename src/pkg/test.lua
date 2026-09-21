@@ -17,6 +17,10 @@ describe("pkg", function ()
         require("pkg.riff.riff_test")
     end)
 
+    describe("asepriteUtil", function ()
+        require("pkg.asepriteUtil.image_test")
+    end)
+
     describe("bitmap", function ()
         require("pkg.bitmap.bitmap_test")
     end)

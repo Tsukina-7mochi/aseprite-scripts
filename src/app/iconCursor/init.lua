@@ -24,6 +24,9 @@ local function getParamsFromArgs ()
     if app.params.layers ~= nil then
         params.layers = app.params.layers
     end
+    if app.params.multiscale ~= nil then
+        params.multiscale = app.params.multiscale == "true" or app.params.multiscale == "1"
+    end
     if app.params.tag ~= nil then
         params.tag = tonumber(app.params.tag) or app.params.tag
     end
@@ -83,11 +86,14 @@ local function main ()
         targetFrames = util.tag.getFrames(tag)
     end
 
+    local spriteSize = Size(sprite.width, sprite.height)
+    local sizes = params.multiscale and parameter.multiscaleSizes(spriteSize) or { spriteSize }
+
     local fileData = ""
     if params.filetype == "ani" then
-        fileData = createAnimCursor(params, targetLayers, targetFrames)
+        fileData = createAnimCursor(params, targetLayers, targetFrames, sizes)
     else
-        fileData = createIcon(params, targetLayers, targetFrames)
+        fileData = createIcon(params, targetLayers, targetFrames, sizes)
     end
 
     local file = io.open(params.filename, "wb")

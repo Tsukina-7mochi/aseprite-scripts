@@ -75,11 +75,53 @@ local function createImage (width, height, pixelData)
         getPixel = function (self, x, y)
             return pixelData[y * width + x + 1]
         end,
+
+        ---Sets pixel at x,y coordinates
+        ---@param x integer
+        ---@param y integer
+        ---@param color integer
+        drawPixel = function (self, x, y, color)
+            pixelData[y * width + x + 1] = color
+        end,
     }
+end
+
+---Mock Image constructor, usable as the global `Image`
+---@param width integer
+---@param height integer
+---@return table Mock Image object filled with transparent pixels
+local function Image (width, height)
+    local pixelData = {}
+    for i = 1, width * height do
+        pixelData[i] = 0
+    end
+
+    return createImage(width, height, pixelData)
+end
+
+---Mock Size constructor, usable as the global `Size`
+---@param width integer
+---@param height integer
+---@return table
+local function Size (width, height)
+    return { width = width, height = height, w = width, h = height }
+end
+
+---Mock Rectangle constructor, usable as the global `Rectangle`
+---@param x integer
+---@param y integer
+---@param width integer
+---@param height integer
+---@return table
+local function Rectangle (x, y, width, height)
+    return { x = x, y = y, width = width, height = height, w = width, h = height }
 end
 
 return {
     ColorMode = ColorMode,
     app = app,
     createImage = createImage,
+    Image = Image,
+    Size = Size,
+    Rectangle = Rectangle,
 }

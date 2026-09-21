@@ -1,3 +1,6 @@
+---Sizes stored in a multiscale icon/cursor file
+local MULTISCALE_SIZES = { 32, 40, 48, 56, 64, 72, 96, 128 }
+
 ---Parameters for icon/cursor export
 ---@class IconCursorParams
 ---@field filetype "ico" | "cur" | "ani"
@@ -8,6 +11,7 @@
 ---@field tag string | integer | nil
 ---@field layers "visible" | "selected"
 ---@field showCompleted boolean
+---@field multiscale boolean
 
 ---Creates default parameters for icon/cursor export
 ---@param sprite Sprite
@@ -26,6 +30,7 @@ local function default (sprite)
         tag = nil,
         layers = "visible",
         showCompleted = true,
+        multiscale = false,
     }
 end
 
@@ -134,10 +139,33 @@ local function validate (params, sprite)
         return false, "showCompleted must be a boolean"
     end
 
+    -- Validate multiscale
+    if type(params.multiscale) ~= "boolean" then
+        return false, "multiscale must be a boolean"
+    end
+
     return true, nil
+end
+
+---Returns the sizes to store in a multiscale icon/cursor file: the sprite size
+---squared by its longer side, followed by every predefined size larger than that.
+---@param spriteSize Size
+---@return Size[]
+local function multiscaleSizes (spriteSize)
+    local base = math.max(spriteSize.width, spriteSize.height)
+    local sizes = { Size(base, base) }
+
+    for _, size in ipairs(MULTISCALE_SIZES) do
+        if size > base then
+            table.insert(sizes, Size(size, size))
+        end
+    end
+
+    return sizes
 end
 
 return {
     default = default,
     validate = validate,
+    multiscaleSizes = multiscaleSizes,
 }
