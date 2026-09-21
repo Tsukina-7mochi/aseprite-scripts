@@ -281,10 +281,12 @@ return (function (...)
     local function bundlerSearcher (moduleName)
         moduleName = moduleName:gsub("%.", internalPathSeparator)
 
-        for template in split(package.path, templateSeparator) do
+        for template in
+            split("./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/share/lua/5.4/?.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/share/lua/5.4/?/init.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/luarocks/share/lua/5.4/?.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/luarocks/share/lua/5.4/?/init.lua", ";")
+        do
             local path = template
-                :gsub(pathSeparator, internalPathSeparator)
-                :gsub(substitutionPoint, moduleName)
+                :gsub("/", internalPathSeparator)
+                :gsub("?", moduleName)
 
             local module = package.nebluaModule[normalizePath(path)]
             if module ~= nil and module.loader ~= nil then
