@@ -13,7 +13,7 @@ Scripts in project directory is build artifact, you MUST NOT refer or edit this 
 - lcd-pixel-filter: LCD-like visual filter script.
 - lib: Libraries. DO NOT edit files in this repository.
   - aseprite/definitions: The type definition of the Aseprite API.
-- Makefile: Task scrips.
+- mise.toml: Tool versions, environment variables and task scripts.
 - psd: Exporter script for PSD, photoshop data format.
 - readme.md
 - smooth-filter: Smoothing visual filter script.
@@ -27,15 +27,15 @@ Scripts in project directory is build artifact, you MUST NOT refer or edit this 
 
 ## Prerequirements
 
-- Lua 5.4
-- Make
-- Stylua
+- mise (installs Lua 5.4 and Stylua via `mise install`)
 
 ## Tools
 
-- `make prepare`: download necessary libraries
-- `make test`: run tests
-- `stylua .`: run formatter
+- `mise install`: install Lua and Stylua
+- `mise run prepare`: download necessary libraries
+- `mise run build`: build scripts
+- `mise run test`: run tests
+- `mise run fmt`: run formatter (`mise run fmt:check` to check only)
 
 ## Documentation
 

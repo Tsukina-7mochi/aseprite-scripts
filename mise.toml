@@ -1,0 +1,42 @@
+[tools]
+lua = "5.4"
+stylua = "latest"
+
+[env]
+LUA_PATH = "./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua"
+
+[tasks.prepare]
+description = "Download necessary libraries"
+depends = ["prepare:test-lib", "prepare:neblua"]
+
+[tasks."prepare:test-lib"]
+description = "Download lua-testing-library"
+run = """
+mkdir -p lib
+test -f lib/test.lua || curl -fsSL https://github.com/Tsukina-7mochi/syzygy/releases/latest/download/syzygy.lua -o lib/test.lua
+"""
+
+[tasks."prepare:neblua"]
+description = "Download neblua"
+run = """
+mkdir -p lib
+test -f lib/neblua.lua || curl -fsSL https://github.com/Tsukina-7mochi/neblua/releases/latest/download/neblua.lua -o lib/neblua.lua
+"""
+
+[tasks.build]
+description = "Build scripts"
+depends = ["prepare:neblua"]
+run = "lua build.lua"
+
+[tasks.test]
+description = "Run tests"
+depends = ["prepare:test-lib"]
+run = "lua ./src/pkg/test.lua"
+
+[tasks.fmt]
+description = "Run formatter"
+run = "stylua ."
+
+[tasks."fmt:check"]
+description = "Check formatting"
+run = "stylua --check ."
