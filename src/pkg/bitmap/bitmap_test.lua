@@ -440,4 +440,125 @@ describe("bitmap", function ()
             expect(err:find("RGB")):toBeTruthy()
         end)
     end)
+    describe("createWithAlphaMaskPaletted", function ()
+        local OPAQUE_RED = 0xFF0000FF
+        local OPAQUE_BLUE = 0xFFFF0000
+        local OPAQUE_BLACK = 0xFF000000
+        local TRANSPARENT = 0x00000000
+
+        test("uses 1 bit per pixel for two colors", function ()
+            local image = mock.createImage(2, 1, { OPAQUE_RED, OPAQUE_BLUE })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            -- Bits per pixel
+            expect(bmp.infoHeader:sub(15, 16)):toBe("\x01\x00")
+            -- Colors used
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x02\x00\x00\x00")
+            -- Color table: BGR0 for red then blue
+            expect(#bmp.colorTable):toBe(8)
+            expect(bmp.colorTable):toBe("\x00\x00\xFF\x00\xFF\x00\x00\x00")
+            -- Indices 0 and 1, MSB first, padded to 4 bytes
+            expect(bmp.pixelData:sub(1, 4)):toBe("\x40\x00\x00\x00")
+        end)
+
+        test("uses 4 bits per pixel for three colors", function ()
+            local image = mock.createImage(3, 1, { OPAQUE_RED, OPAQUE_BLUE, 0xFF00FF00 })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(bmp.infoHeader:sub(15, 16)):toBe("\x04\x00")
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x03\x00\x00\x00")
+            expect(#bmp.colorTable):toBe(12)
+            -- Two pixels per byte, high nibble first: (0, 1) then (2, pad)
+            expect(bmp.pixelData:sub(1, 4)):toBe("\x01\x20\x00\x00")
+        end)
+
+        test("uses 8 bits per pixel for seventeen colors", function ()
+            local pixels = {}
+            for i = 1, 17 do
+                pixels[i] = 0xFF000000 | i
+            end
+            local image = mock.createImage(17, 1, pixels)
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(bmp.infoHeader:sub(15, 16)):toBe("\x08\x00")
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x11\x00\x00\x00")
+            expect(#bmp.colorTable):toBe(17 * 4)
+            -- 17 bytes per row padded to 20, plus a 4 byte alpha mask row
+            expect(#bmp.pixelData):toBe(24)
+        end)
+
+        test("pads indexed rows to a 4 byte boundary", function ()
+            local image =
+                mock.createImage(3, 2, { OPAQUE_RED, OPAQUE_RED, OPAQUE_RED, OPAQUE_BLUE, OPAQUE_BLUE, OPAQUE_BLUE })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            -- 1bpp: 1 byte per row padded to 4 bytes, rows bottom-to-top
+            expect(bmp.pixelData:sub(1, 8)):toBe("\xE0\x00\x00\x00\x00\x00\x00\x00")
+        end)
+
+        test("points transparent pixels at a black entry", function ()
+            local image = mock.createImage(2, 1, { OPAQUE_RED, TRANSPARENT })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            -- Red, then black for the transparent pixel
+            expect(bmp.colorTable):toBe("\x00\x00\xFF\x00\x00\x00\x00\x00")
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x02\x00\x00\x00")
+            -- Indices 0 and 1
+            expect(bmp.pixelData:sub(1, 4)):toBe("\x40\x00\x00\x00")
+        end)
+
+        test("shares the black entry between transparent and opaque black pixels", function ()
+            local image = mock.createImage(2, 1, { OPAQUE_BLACK, TRANSPARENT })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(bmp.colorTable):toBe("\x00\x00\x00\x00")
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x01\x00\x00\x00")
+        end)
+
+        test("stores one entry for a fully transparent image", function ()
+            local image = mock.createImage(2, 1, { TRANSPARENT, TRANSPARENT })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(#bmp.colorTable):toBe(4)
+            expect(bmp.infoHeader:sub(33, 36)):toBe("\x01\x00\x00\x00")
+        end)
+
+        test("appends the same alpha mask as createWithAlphaMask", function ()
+            local image = mock.createImage(2, 1, { OPAQUE_RED, TRANSPARENT })
+            local paletted = bitmap.createWithAlphaMaskPaletted(image)
+            local fullColor = bitmap.createWithAlphaMask(image)
+
+            -- Alpha mask is the last 4 bytes (one padded row) of the pixel data
+            expect(paletted.pixelData:sub(-4)):toBe(fullColor.pixelData:sub(-4))
+        end)
+
+        test("writes the data offset after the color table", function ()
+            local image = mock.createImage(2, 1, { OPAQUE_RED, OPAQUE_BLUE })
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(bmp.fileHeader:sub(11, 14)):toBe("\x3E\x00\x00\x00") -- 14 + 40 + 8
+        end)
+
+        test("keeps 256 colors paletted", function ()
+            local pixels = {}
+            for i = 1, 256 do
+                pixels[i] = 0xFF000000 | i
+            end
+            local image = mock.createImage(256, 1, pixels)
+            local bmp = bitmap.createWithAlphaMaskPaletted(image)
+
+            expect(bmp.infoHeader:sub(15, 16)):toBe("\x08\x00")
+            expect(#bmp.colorTable):toBe(256 * 4)
+        end)
+
+        test("returns nil for more than 256 colors", function ()
+            local pixels = {}
+            for i = 1, 257 do
+                pixels[i] = 0xFF000000 | i
+            end
+            local image = mock.createImage(257, 1, pixels)
+
+            expect(bitmap.createWithAlphaMaskPaletted(image)):toBe(nil)
+        end)
+    end)
 end)

@@ -21,16 +21,17 @@ end
 
 ---@param width integer
 ---@param height integer
+---@param numColors integer Number of color table entries (0 = no palette)
 ---@param hotSpotX integer
 ---@param hotSpotY integer
 ---@param imageDataSize integer
 ---@param imageDataOffset integer
 ---@return string
-local function createIconHeader (width, height, hotSpotX, hotSpotY, imageDataSize, imageDataOffset)
+local function createIconHeader (width, height, numColors, hotSpotX, hotSpotY, imageDataSize, imageDataOffset)
     return table.concat({
         pack.u8(width % 256),
         pack.u8(height % 256),
-        pack.u8(0), -- number of colors in palette (0 = no palette)
+        pack.u8(numColors % 256), -- number of colors in palette (0 = no palette or 256 colors)
         pack.u8(0), -- reserved
         pack.u16LE(hotSpotX),
         pack.u16LE(hotSpotY),
@@ -61,14 +62,15 @@ local function createIcon (params, targetLayers, targetFrames, sizes)
                 math.max(1, math.floor(math.min(size.width / frameImage.width, size.height / frameImage.height)))
             local bounds = Rectangle(0, 0, frameImage.width * scale, frameImage.height * scale)
             local image = util.image.scaleInto(frameImage, size, bounds)
-            local bitmap = bitmaps.createWithAlphaMask(image)
+            local bitmap = bitmaps.createWithAlphaMaskPaletted(image) or bitmaps.createWithAlphaMask(image)
 
-            local dataSize = #bitmap.infoHeader + #bitmap.pixelData
+            local dataSize = #bitmap.infoHeader + #bitmap.colorTable + #bitmap.pixelData
             -- offset = (size of file header) + (number of images) * (size of icon header = 16) + dataSizeSum
             local dataOffset = #fileHeader + (#targetFrames * #sizes * 16) + dataSizeSum
             local header = createIconHeader(
                 image.width,
                 image.height,
+                #bitmap.colorTable // 4,
                 params.filetype == "ico" and 0 or params.hotSpotX * scale,
                 params.filetype == "ico" and 0 or params.hotSpotY * scale,
                 dataSize,
@@ -80,6 +82,7 @@ local function createIcon (params, targetLayers, targetFrames, sizes)
                 imageData,
                 table.concat({
                     bitmap.infoHeader,
+                    bitmap.colorTable,
                     bitmap.pixelData,
                 }, "")
             )

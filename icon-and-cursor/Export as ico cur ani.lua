@@ -580,16 +580,17 @@ end
 
 ---@param width integer
 ---@param height integer
+---@param numColors integer Number of color table entries (0 = no palette)
 ---@param hotSpotX integer
 ---@param hotSpotY integer
 ---@param imageDataSize integer
 ---@param imageDataOffset integer
 ---@return string
-local function createIconHeader (width, height, hotSpotX, hotSpotY, imageDataSize, imageDataOffset)
+local function createIconHeader (width, height, numColors, hotSpotX, hotSpotY, imageDataSize, imageDataOffset)
     return table.concat({
         pack.u8(width % 256),
         pack.u8(height % 256),
-        pack.u8(0), -- number of colors in palette (0 = no palette)
+        pack.u8(numColors % 256), -- number of colors in palette (0 = no palette or 256 colors)
         pack.u8(0), -- reserved
         pack.u16LE(hotSpotX),
         pack.u16LE(hotSpotY),
@@ -620,14 +621,15 @@ local function createIcon (params, targetLayers, targetFrames, sizes)
                 math.max(1, math.floor(math.min(size.width / frameImage.width, size.height / frameImage.height)))
             local bounds = Rectangle(0, 0, frameImage.width * scale, frameImage.height * scale)
             local image = util.image.scaleInto(frameImage, size, bounds)
-            local bitmap = bitmaps.createWithAlphaMask(image)
+            local bitmap = bitmaps.createWithAlphaMaskPaletted(image) or bitmaps.createWithAlphaMask(image)
 
-            local dataSize = #bitmap.infoHeader + #bitmap.pixelData
+            local dataSize = #bitmap.infoHeader + #bitmap.colorTable + #bitmap.pixelData
             -- offset = (size of file header) + (number of images) * (size of icon header = 16) + dataSizeSum
             local dataOffset = #fileHeader + (#targetFrames * #sizes * 16) + dataSizeSum
             local header = createIconHeader(
                 image.width,
                 image.height,
+                #bitmap.colorTable // 4,
                 params.filetype == "ico" and 0 or params.hotSpotX * scale,
                 params.filetype == "ico" and 0 or params.hotSpotY * scale,
                 dataSize,
@@ -639,6 +641,7 @@ local function createIcon (params, targetLayers, targetFrames, sizes)
                 imageData,
                 table.concat({
                     bitmap.infoHeader,
+                    bitmap.colorTable,
                     bitmap.pixelData,
                 }, "")
             )
@@ -732,13 +735,14 @@ local BitmapFile = require("pkg.bitmap.bitmap").BitmapFile
 
 ---Generates BMP file header
 ---@param fileSize integer Total file size in bytes
+---@param dataOffset integer? Offset of the pixel data (default: 54 = 14 + 40)
 ---@return string Binary header data
-local function createFileHeader (fileSize)
+local function createFileHeader (fileSize, dataOffset)
     return table.concat({
         "BM", -- Signature
         pack.u32LE(fileSize), -- File size
         pack.u32LE(0), -- Reserved
-        pack.u32LE(54), -- Data offset (14 + 40)
+        pack.u32LE(dataOffset or 54), -- Data offset (14 + 40 + color table)
     })
 end
 
@@ -747,8 +751,9 @@ end
 ---@param height integer Image height in pixels
 ---@param bitsPerPixel integer Bits per pixel (e.g., 24 for RGB)
 ---@param imageSize integer Size of pixel data in bytes
+---@param colorsUsed integer? Number of color table entries (default: 0 = all colors)
 ---@return string Binary header data
-local function createInfoHeader (width, height, bitsPerPixel, imageSize)
+local function createInfoHeader (width, height, bitsPerPixel, imageSize, colorsUsed)
     return table.concat({
         pack.u32LE(40), -- Header size
         pack.i32LE(width), -- Image width
@@ -759,7 +764,7 @@ local function createInfoHeader (width, height, bitsPerPixel, imageSize)
         pack.u32LE(imageSize), -- Image size
         pack.i32LE(0), -- X pixels per meter (0 = not specified)
         pack.i32LE(0), -- Y pixels per meter (0 = not specified)
-        pack.u32LE(0), -- Colors used (0 = all colors)
+        pack.u32LE(colorsUsed or 0), -- Colors used (0 = all colors)
         pack.u32LE(0), -- Important colors (0 = all important)
     })
 end
@@ -850,6 +855,126 @@ local function encodeAlphaMask (image)
     return maskData
 end
 
+---Returns the color table key of a pixel: colors are distinguished by their RGB
+---value only, since a color table entry has no alpha.
+---@param pixel integer RGBA pixel value
+---@return integer
+local function colorKeyOf (pixel)
+    if app.pixelColor.rgbaA(pixel) == 0 then
+        return app.pixelColor.rgba(0, 0, 0, 255)
+    end
+
+    return app.pixelColor.rgba(
+        app.pixelColor.rgbaR(pixel),
+        app.pixelColor.rgbaG(pixel),
+        app.pixelColor.rgbaB(pixel),
+        255
+    )
+end
+
+---Collects the colors of an image into a color table
+---@param image Image Aseprite RGB Image object
+---@return integer[] colors Color table entries as RGBA values
+---@return table<integer, integer> indexOf Maps a color key to its color table index (0-based)
+local function collectColors (image)
+    local colors = {}
+    local indexOf = {}
+
+    for y = 0, image.height - 1 do
+        for x = 0, image.width - 1 do
+            local key = colorKeyOf(image:getPixel(x, y))
+
+            if indexOf[key] == nil then
+                table.insert(colors, key)
+                indexOf[key] = #colors - 1
+            end
+        end
+    end
+
+    return colors, indexOf
+end
+
+---Returns the smallest bits per pixel that can index the given number of colors,
+---or nil if a BMP color table cannot hold that many colors
+---@param colorCount integer
+---@return integer?
+local function bitsPerPixelFor (colorCount)
+    if colorCount <= 2 then
+        return 1
+    elseif colorCount <= 16 then
+        return 4
+    elseif colorCount <= 256 then
+        return 8
+    end
+    return nil
+end
+
+---Encodes a color table to BMP format (RGBQUAD: blue, green, red, reserved)
+---@param colors integer[] Color table entries as RGBA values
+---@return string Binary color table data
+local function encodeColorTable (colors)
+    local entries = {}
+
+    for _, color in ipairs(colors) do
+        table.insert(
+            entries,
+            table.concat({
+                pack.u8(app.pixelColor.rgbaB(color)),
+                pack.u8(app.pixelColor.rgbaG(color)),
+                pack.u8(app.pixelColor.rgbaR(color)),
+                pack.u8(0), -- Reserved
+            })
+        )
+    end
+
+    return table.concat(entries)
+end
+
+---Encodes image pixels to indexed BMP format
+---Processes bottom-to-top, packs indices MSB first, adds row padding
+---@param image Image Aseprite RGB Image object
+---@param indexOf table<integer, integer> Maps a color key to its color table index
+---@param bitsPerPixel integer Bits per pixel (1, 4 or 8)
+---@return string Binary pixel data
+local function encodeIndexedPixels (image, indexOf, bitsPerPixel)
+    local width = image.width
+    local height = image.height
+    local pixelsPerByte = 8 // bitsPerPixel
+    local bytesPerRow = math.ceil(width / pixelsPerByte)
+    local padding = (4 - (bytesPerRow % 4)) % 4
+    local rows = {}
+
+    -- Process rows from bottom to top
+    for y = height - 1, 0, -1 do
+        local row = {}
+        local byte = 0
+        local count = 0
+
+        for x = 0, width - 1 do
+            byte = (byte << bitsPerPixel) | indexOf[colorKeyOf(image:getPixel(x, y))]
+            count = count + 1
+
+            if count == pixelsPerByte then
+                table.insert(row, pack.u8(byte))
+                byte = 0
+                count = 0
+            end
+        end
+
+        -- Handle remaining pixels in the row
+        if count ~= 0 then
+            table.insert(row, pack.u8(byte << ((pixelsPerByte - count) * bitsPerPixel)))
+        end
+
+        -- Add padding bytes to align row to 4-byte boundary
+        table.insert(row, ("\x00"):rep(padding))
+
+        table.insert(rows, table.concat(row))
+    end
+
+    return table.concat(rows)
+end
+
 ---Creates a BitmapFile from an Aseprite Image
 ---@param image Image Aseprite RGB Image object
 ---@return BitmapFile
@@ -886,9 +1011,41 @@ local function createWithAlphaMask (image)
     return BitmapFile(fileHeader, infoHeader, pixelData .. alphaMaskData)
 end
 
+---Creates a BitmapFile with a color table and an alpha mask from an Aseprite Image
+---@param image Image Aseprite RGB Image object
+---@return BitmapFile? bitmap nil if the image has more than 256 colors
+local function createWithAlphaMaskPaletted (image)
+    if image.colorMode ~= ColorMode.RGB then
+        error("Only RGB images are supported for BMP export")
+    end
+
+    local colors, indexOf = collectColors(image)
+    local bitsPerPixel = bitsPerPixelFor(#colors)
+    if bitsPerPixel == nil then
+        return nil
+    end
+
+    local colorTable = encodeColorTable(colors)
+    local pixelData = encodeIndexedPixels(image, indexOf, bitsPerPixel)
+    local alphaMaskData = encodeAlphaMask(image)
+    local infoHeader = createInfoHeader(
+        image.width,
+        image.height * 2, -- double the height for alpha mask
+        bitsPerPixel,
+        #pixelData, -- not include alpha mask data in image size
+        #colors
+    )
+    local dataOffset = 14 + #infoHeader + #colorTable -- 14: file header
+    local fileSize = dataOffset + #pixelData + #alphaMaskData
+    local fileHeader = createFileHeader(fileSize, dataOffset)
+
+    return BitmapFile(fileHeader, infoHeader, pixelData .. alphaMaskData, colorTable)
+end
+
 return {
     create = create,
     createWithAlphaMask = createWithAlphaMask,
+    createWithAlphaMaskPaletted = createWithAlphaMaskPaletted,
 }
 
     end
@@ -1251,8 +1408,9 @@ package.nebluaModule["./pkg/bitmap/bitmap.lua"] = {
 ---@class BitmapFile
 ---@field fileHeader string BMP file header (14 bytes)
 ---@field infoHeader string Bitmap info header (40 bytes)
+---@field colorTable string Binary color table, empty when the image has no palette
 ---@field pixelData string Binary pixel data
----@overload fun(fileHeader: string, infoHeader: string, pixelData: string): BitmapFile
+---@overload fun(fileHeader: string, infoHeader: string, pixelData: string, colorTable: string?): BitmapFile
 local BitmapFile = {}
 
 ---Converts the bitmap file to a binary string
@@ -1262,6 +1420,7 @@ local function tostring (bitmap)
     return table.concat({
         bitmap.fileHeader,
         bitmap.infoHeader,
+        bitmap.colorTable,
         bitmap.pixelData,
     })
 end
@@ -1269,10 +1428,11 @@ end
 BitmapFile.tostring = tostring
 
 setmetatable(BitmapFile --[[ @as table ]], {
-    __call = function (_, fileHeader, infoHeader, pixelData)
+    __call = function (_, fileHeader, infoHeader, pixelData, colorTable)
         local value = {
             fileHeader = fileHeader,
             infoHeader = infoHeader,
+            colorTable = colorTable or "",
             pixelData = pixelData,
         }
 
