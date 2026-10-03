@@ -1,4 +1,5 @@
 local neblua = require("lib.neblua")
+local targets = require("targets")
 
 local preInitCode = [[
     local function snapshot(target)
@@ -31,50 +32,16 @@ local postRunCode = [[
     rollbackSearchers()
 ]]
 
-neblua.bundle({
-    entry = "entry.iconCursor",
-    output = "./icon-and-cursor/Export as ico cur ani.lua",
-    include = {
-        "./entry/iconCursor.lua",
-    },
-    rootDir = "./src",
-    fallbackStderr = true,
-    preInitCode = preInitCode,
-    postRunCode = postRunCode,
-})
-
-neblua.bundle({
-    entry = "entry.lcdFilter",
-    output = "./lcd-pixel-filter/LCD Pixel Filter.lua",
-    include = {
-        "./entry/lcdFilter.lua",
-    },
-    rootDir = "./src",
-    fallbackStderr = true,
-    preInitCode = preInitCode,
-    postRunCode = postRunCode,
-})
-
-neblua.bundle({
-    entry = "entry.psd",
-    output = "./psd/Export as psd.lua",
-    include = {
-        "./entry/psd.lua",
-    },
-    rootDir = "./src",
-    fallbackStderr = true,
-    preInitCode = preInitCode,
-    postRunCode = postRunCode,
-})
-
-neblua.bundle({
-    entry = "entry.smoothFilter",
-    output = "./smooth-filter/Smooth Filter.lua",
-    include = {
-        "./entry/smoothFilter.lua",
-    },
-    rootDir = "./src",
-    fallbackStderr = true,
-    preInitCode = preInitCode,
-    postRunCode = postRunCode,
-})
+for _, target in ipairs(targets) do
+    neblua.bundle({
+        entry = target.entry,
+        output = "./dist/" .. target.file,
+        include = {
+            "./" .. target.entry:gsub("%.", "/") .. ".lua",
+        },
+        rootDir = "./src",
+        fallbackStderr = true,
+        preInitCode = preInitCode,
+        postRunCode = postRunCode,
+    })
+end

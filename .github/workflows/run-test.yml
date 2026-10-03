@@ -21,68 +21,23 @@ jobs:
         run: mise run test
 
 
-  ensure-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: jdx/mise-action@v2
-
-      - name: Ensure build
-        run: |
-          mise run build
-          test -z "$(git diff --name-only)"
-
-
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
-    strategy:
-      matrix:
-        target:
-          - '{
-              "name": "aseprite-scripts/psd",
-              "output": "./psd/Export as psd.lua"
-            }'
-          - '{
-              "name": "aseprite-scripts/icon-and-cursor",
-              "output": "./icon-and-cursor/Export as ico cur ani.lua"
-            }'
-          - '{
-              "name": "aseprite-scripts/lcd-pixel-filter",
-              "output": "./lcd-pixel-filter/LCD Pixel Filter.lua"
-            }'
-          - '{
-              "name": "aseprite-scripts/smooth-filter",
-              "output": "./smooth-filter/Smooth Filter.lua"
-            }'
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: jdx/mise-action@v2
 
+      - name: Check manifests
+        run: mise run check:manifest
+
       - name: Build
-        run: |
-          mise run build
+        run: mise run build
 
-      - uses: ./.github/actions/use-script-manifest
-        id: manifest
+      - uses: actions/upload-artifact@v4
         with:
-          filename: ${{ fromJSON(matrix.target).output }}
-
-      - name: Check package name
-        run: |
-          test "${{ fromJSON(matrix.target).name }}" = "${{ steps.manifest.outputs.name }}"
-
-      - name: Print package manifest
-        run: |
-          echo 'name:        ${{ steps.manifest.outputs.name }}'
-          echo 'description: ${{ steps.manifest.outputs.description }}'
-          echo 'version:     ${{ steps.manifest.outputs.version }}'
-          echo 'author:      ${{ steps.manifest.outputs.author }}'
-          echo 'license:     ${{ steps.manifest.outputs.license }}'
-          echo 'homepage:    ${{ steps.manifest.outputs.homepage }}'
+          name: scripts
+          path: dist
+          retention-days: 7

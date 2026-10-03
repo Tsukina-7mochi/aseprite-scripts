@@ -28,10 +28,14 @@
 
 ## Download
 
-[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smooth-filter/Smooth%20Filter.lua)
+[Download](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest/download/Smooth.Filter.lua)
 
 
 ## Changelog
+
+### 2026.10.03
+
+- Changed versioning scheme to `yyyy.mm.dd`.
 
 ### v0.1.1
 

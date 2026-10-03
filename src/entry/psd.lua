@@ -1,7 +1,7 @@
 package.manifest = {
     name = "aseprite-scripts/psd",
     description = "Exports sprite as a PSD file",
-    version = "v1.3.2",
+    version = "2026.10.03",
     author = "Mooncake Sugar",
     license = "MIT",
     homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/psd/",

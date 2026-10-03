@@ -20,9 +20,13 @@
 
 ## Download
 
-[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
+[Download](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest/download/Export.as.psd.lua)
 
 ## Changelog
+
+### 2026.10.03
+
+- Changed versioning scheme to `yyyy.mm.dd`.
 
 ### v1.3.2
 
