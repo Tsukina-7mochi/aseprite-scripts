@@ -228,7 +228,7 @@ return (function (...)
         moduleName = moduleName:gsub("%.", internalPathSeparator)
 
         for template in
-            split("./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/share/lua/5.4/?.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/share/lua/5.4/?/init.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/luarocks/share/lua/5.4/?.lua;/home/ts7m/.local/share/mise/installs/lua/5.4.8/luarocks/share/lua/5.4/?/init.lua", ";")
+            split("./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua", ";")
         do
             local path = template
                 :gsub("/", internalPathSeparator)
