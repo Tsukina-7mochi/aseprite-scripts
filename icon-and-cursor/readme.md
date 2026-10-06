@@ -15,6 +15,10 @@ This script exports sprite as windows icon and cursor files, `.ico` and `.cur`, 
 
 ## Change Log
 
+### v0.3.0
+
+- Supported multi-scale export.
+
 ### v0.2.0 (reimplementation)
 
 - Fixed dialog validator behavior.
