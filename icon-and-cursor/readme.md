@@ -11,7 +11,7 @@ This script exports sprite as windows icon and cursor files, `.ico` and `.cur`, 
 
 ## Download
 
-[Download](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest/download/Export.as.ico.cur.ani.lua)
+[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/icon-and-cursor/Export%20as%20ico%20cur%20ani.lua)
 
 ## Change Log
 

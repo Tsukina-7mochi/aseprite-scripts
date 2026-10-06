@@ -26,11 +26,11 @@ test -f lib/neblua.lua || curl -fsSL https://github.com/Tsukina-7mochi/neblua/re
 [tasks.build]
 description = "Build scripts"
 depends = ["prepare:neblua"]
-run = ["mkdir -p dist", "lua build.lua"]
+run = "lua build.lua"
 
 [tasks."check:manifest"]
 description = "Validate manifests of scripts"
-run = "lua release.lua check"
+run = "lua check-manifest.lua"
 
 [tasks.test]
 description = "Run tests"

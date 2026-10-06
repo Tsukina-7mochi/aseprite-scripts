@@ -7,10 +7,6 @@
 - [**LCD Pixel Filter**](lcd-pixel-filter/readme.md): Filter effect that looks like an LCD screen.
 - [**Smooth Filter**](smoothFilter/readme.md): Smooghing filter effect.
 
-## Download
-
-All scripts are available from the [latest release](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest).
-
 ## Script Installation
 
 Aseprite scripts are provided as `.lua` file. You have to place then into script folder.

@@ -35,7 +35,7 @@ local postRunCode = [[
 for _, target in ipairs(targets) do
     neblua.bundle({
         entry = target.entry,
-        output = "./dist/" .. target.file,
+        output = "./" .. target.dir .. "/" .. target.file,
         include = {
             "./" .. target.entry:gsub("%.", "/") .. ".lua",
         },

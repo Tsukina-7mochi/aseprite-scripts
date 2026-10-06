@@ -21,7 +21,22 @@ jobs:
         run: mise run test
 
 
-  build:
+  ensure-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+
+      - name: Ensure build
+        run: |
+          mise run build
+          test -z "$(git diff --name-only)"
+
+
+  check-manifest:
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
@@ -32,12 +47,3 @@ jobs:
 
       - name: Check manifests
         run: mise run check:manifest
-
-      - name: Build
-        run: mise run build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: scripts
-          path: dist
-          retention-days: 7

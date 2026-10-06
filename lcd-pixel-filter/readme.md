@@ -21,7 +21,7 @@ LCD-pixel-like
 
 ## Download
 
-[Download](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest/download/LCD.Pixel.Filter.lua)
+[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/lcd-pixel-filter/LCD%20Pixel%20Filter.lua)
 
 ## Others
 

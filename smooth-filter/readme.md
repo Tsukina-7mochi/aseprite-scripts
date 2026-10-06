@@ -28,7 +28,7 @@
 
 ## Download
 
-[Download](https://github.com/Tsukina-7mochi/aseprite-scripts/releases/latest/download/Smooth.Filter.lua)
+[Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smooth-filter/Smooth%20Filter.lua)
 
 
 ## Changelog
