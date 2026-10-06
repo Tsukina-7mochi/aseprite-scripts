@@ -4,6 +4,7 @@ stylua = "latest"
 
 [env]
 LUA_PATH = "./?.lua;./?/init.lua;./src/?.lua;./src/?/init.lua"
+LUA_INIT_5_4 = ""
 
 [tasks.prepare]
 description = "Download necessary libraries"
