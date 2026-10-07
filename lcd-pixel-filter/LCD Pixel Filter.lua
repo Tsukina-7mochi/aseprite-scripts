@@ -1,7 +1,7 @@
 package.manifest = {
     name = "aseprite-scripts/lcd-pixel-filter",
     description = "Applies filter like LCD.",
-    version = "v0.1.1",
+    version = "2026.10.07",
     author = "Mooncake Sugar",
     license = "MIT",
     homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/lcd-pixel-filter/",

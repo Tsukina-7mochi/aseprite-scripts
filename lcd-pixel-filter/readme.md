@@ -29,6 +29,11 @@ LCD-pixel-like
 
 ## Change Log
 
+### 2026.10.07
+
+- Changed script versioning.
+- Stopd bundling.
+
 ### v0.1.1
 
 - Introduce NebLua bundler.

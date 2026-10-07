@@ -2,23 +2,24 @@
 
 ## About This Script
 
- A script that applies smooth filter.
+A script that applies smooth filter.
 
- ![screenshot](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/screenshot.png)
+![screenshot](https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/screenshot.png)
 
 ## Installation
 
- 1. Open your script folder.
-      (File -> Scripts -> Open Scripts Folder)
- 2. Place "Smooth Filter.lua"
+1.  Open your script folder.
+    (File -> Scripts -> Open Scripts Folder)
+2.  Place "Smooth Filter.lua"
 
 ## Options
+
 - Scale
- Resize sprite like aseprite's "Export File".
+  Resize sprite like aseprite's "Export File".
 - Smooth
- The strength of smoothing. ((Scale - 1) / 2) recommended.
+  The strength of smoothing. ((Scale - 1) / 2) recommended.
 - Background detection
- Range for detecting background.
+  Range for detecting background.
 
 ## In Use
 
@@ -30,8 +31,12 @@
 
 [Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/smooth-filter/Smooth%20Filter.lua)
 
-
 ## Changelog
+
+### 2026.10.07
+
+- Changed script versioning.
+- Stopd bundling.
 
 ### v0.1.1
 

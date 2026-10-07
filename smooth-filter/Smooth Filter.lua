@@ -1,7 +1,7 @@
 package.manifest = {
     name = "aseprite-scripts/smooth-filter",
     description = "Applies filter to smooth the image.",
-    version = "v0.1.1",
+    version = "2026.10.07",
     author = "Mooncake Sugar",
     license = "MIT",
     homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/smooth-filter/",

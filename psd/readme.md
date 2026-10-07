@@ -2,27 +2,32 @@
 
 ## About This Script
 
- This script enables export of photoshop file format (.psd) to aseprite.
+This script enables export of photoshop file format (.psd) to aseprite.
 
 ## Installation
 
- 1. Open your script folder.
-      (File -> Scripts -> Open Scripts Folder)
-  2. Place "Export as psd.lua"
+1. Open your script folder.
+   (File -> Scripts -> Open Scripts Folder)
+2. Place "Export as psd.lua"
 
 ## Usage
 
- 1. Run script
-      (File -> Scripts -> Export as PSD)
- 2. Edit the filename to export if needed.
- 3. Specify the frame number to export.
- 4. Click `Export` button.
+1.  Run script
+    (File -> Scripts -> Export as PSD)
+2.  Edit the filename to export if needed.
+3.  Specify the frame number to export.
+4.  Click `Export` button.
 
 ## Download
 
 [Download](https://raw.githubusercontent.com/Tsukina-7mochi/aseprite-scripts/master/psd/Export%20as%20psd.lua)
 
 ## Changelog
+
+### 2026.10.07
+
+- Changed script versioning.
+- Updated NebLua and build configuration.
 
 ### v1.3.2
 
@@ -57,7 +62,7 @@
 
 - Support compression.
 
-### v1.0.2 
+### v1.0.2
 
 - Support Shift-JIS in layer name.
 
