@@ -5,7 +5,7 @@
 - [**Export as PSD**](psd/readme.md): Exports sprite as Adobe Photoshop file format
 - [**Export as ico, cur, ani**](icon-and-cursor): Exports sprite as Windows static/animated cursor file.
 - [**LCD Pixel Filter**](lcd-pixel-filter/readme.md): Filter effect that looks like an LCD screen.
-- [**Smooth Filter**](smoothFilter/readme.md): Smooghing filter effect.
+- [**Smooth Filter**](smooth-filter/readme.md): Smoothing filter effect.
 
 ## Script Installation
 

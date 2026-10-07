@@ -5,24 +5,24 @@ This is a implementation of scripts and extensions of Aseprite, a pixel-art edit
 ## Structure
 
 For historical reason, this repository contains multiple projects as monorepo.
-All source code is placed in `src` directory, not those of each project.
-Scripts in project directory is build artifact, you MUST NOT refer or edit this at all.
+Bundled scripts (icon-and-cursor, psd) are built from `src` directory; the scripts in their project directories are build artifacts, you MUST NOT refer or edit them at all.
+Unbundled scripts (lcd-pixel-filter, smooth-filter) are placed directly in their project directories and edited there.
 
 - build.lua: Build script.
-- icon-and-cursor: Exporter script for ICO, CUR and ANI files.
-- lcd-pixel-filter: LCD-like visual filter script.
+- icon-and-cursor: Exporter script for ICO, CUR and ANI files (bundled).
+- lcd-pixel-filter: LCD-like visual filter script (unbundled).
 - lib: Libraries. DO NOT edit files in this repository.
   - aseprite/definitions: The type definition of the Aseprite API.
 - mise.toml: Tool versions, environment variables and task scripts.
-- psd: Exporter script for PSD, photoshop data format.
+- psd: Exporter script for PSD, photoshop data format (bundled).
 - readme.md
-- smooth-filter: Smoothing visual filter script.
-- src: Source codes
+- smooth-filter: Smoothing visual filter script (unbundled).
+- src: Source codes of bundled scripts
 
 ## Coding Rules
 
 - Rood directory of scripts in `src` directory is `src`. Use absolute reference like `src.foo.bar`
-- Scripts specific to apps are stored in `src/app/{appName}` directory.
+- Scripts specific to apps are stored in `src/app/{appName}` directory. `src/app/{appName}/init.lua` is the bundle entry and holds `package.manifest`.
 - Reusable modules are stored in `src/pkg` directory.
 
 ## Prerequirements

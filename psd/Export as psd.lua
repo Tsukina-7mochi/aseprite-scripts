@@ -31,7 +31,7 @@ package.nebluaModule = {}
 
 
 
-package.nebluaModule["./entry/psd.lua"] = {
+package.nebluaModule["./app/psd/init.lua"] = {
     line = debug.getinfo(1).currentline,
     loader = function(...)
 package.manifest = {
@@ -1053,13 +1053,13 @@ return (function (...)
 
     
 
-    local loader = bundlerSearcher("./entry.psd")
+    local loader = bundlerSearcher("app.psd")
     if loader == nil then
-        error("Cannot find entry point: " .. "./entry.psd")
+        error("Cannot find entry point: " .. "app.psd")
     end
 
     local result =
-        table.pack(xpcall(loader, errorHandler, "./entry.psd", ...))
+        table.pack(xpcall(loader, errorHandler, "app.psd", ...))
     local success = result[1]
 
         rollbackLoaded()

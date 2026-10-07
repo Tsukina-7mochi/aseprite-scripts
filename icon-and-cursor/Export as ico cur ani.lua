@@ -31,7 +31,7 @@ package.nebluaModule = {}
 
 
 
-package.nebluaModule["./entry/iconCursor.lua"] = {
+package.nebluaModule["./app/iconCursor/init.lua"] = {
     line = debug.getinfo(1).currentline,
     loader = function(...)
 package.manifest = {
@@ -47,14 +47,6 @@ if not app then
     return
 end
 
-require("app.iconCursor.init").main()
-
-    end
-}
-
-package.nebluaModule["./app/iconCursor/init.lua"] = {
-    line = debug.getinfo(1).currentline,
-    loader = function(...)
 local dialog = require("app.iconCursor.dialog")
 local parameter = require("app.iconCursor.parameter")
 local createIcon = require("app.iconCursor.icon").create
@@ -168,7 +160,7 @@ local function main ()
     end
 end
 
-return { main = main }
+main()
 
     end
 }
@@ -1605,13 +1597,13 @@ return (function (...)
 
     
 
-    local loader = bundlerSearcher("./entry.iconCursor")
+    local loader = bundlerSearcher("app.iconCursor")
     if loader == nil then
-        error("Cannot find entry point: " .. "./entry.iconCursor")
+        error("Cannot find entry point: " .. "app.iconCursor")
     end
 
     local result =
-        table.pack(xpcall(loader, errorHandler, "./entry.iconCursor", ...))
+        table.pack(xpcall(loader, errorHandler, "app.iconCursor", ...))
     local success = result[1]
 
         rollbackLoaded()

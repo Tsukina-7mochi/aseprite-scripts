@@ -1,5 +1,3 @@
 /lib
-/icon-and-cursor
-/lcd-pixel-filter
-/psd
-/smooth-filter
+/icon-and-cursor/*.lua
+/psd/*.lua

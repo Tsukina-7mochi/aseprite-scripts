@@ -1,3 +1,16 @@
+package.manifest = {
+    name = "aseprite-scripts/icon-and-cursor",
+    description = "Export sprite as windows icon and cursor.",
+    version = "v0.3.0",
+    author = "Mooncake Sugar",
+    license = "MIT",
+    homepage = "https://github.com/Tsukina-7mochi/aseprite-scripts/blob/master/icon-and-cursor/",
+}
+
+if not app then
+    return
+end
+
 local dialog = require("app.iconCursor.dialog")
 local parameter = require("app.iconCursor.parameter")
 local createIcon = require("app.iconCursor.icon").create
@@ -111,4 +124,4 @@ local function main ()
     end
 end
 
-return { main = main }
+main()
