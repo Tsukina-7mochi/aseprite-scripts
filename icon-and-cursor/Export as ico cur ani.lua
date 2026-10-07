@@ -1597,13 +1597,13 @@ return (function (...)
 
     
 
-    local loader = bundlerSearcher("./app.iconCursor")
+    local loader = bundlerSearcher("app.iconCursor")
     if loader == nil then
-        error("Cannot find entry point: " .. "./app.iconCursor")
+        error("Cannot find entry point: " .. "app.iconCursor")
     end
 
     local result =
-        table.pack(xpcall(loader, errorHandler, "./app.iconCursor", ...))
+        table.pack(xpcall(loader, errorHandler, "app.iconCursor", ...))
     local success = result[1]
 
         rollbackLoaded()

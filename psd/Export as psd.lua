@@ -1053,13 +1053,13 @@ return (function (...)
 
     
 
-    local loader = bundlerSearcher("./app.psd")
+    local loader = bundlerSearcher("app.psd")
     if loader == nil then
-        error("Cannot find entry point: " .. "./app.psd")
+        error("Cannot find entry point: " .. "app.psd")
     end
 
     local result =
-        table.pack(xpcall(loader, errorHandler, "./app.psd", ...))
+        table.pack(xpcall(loader, errorHandler, "app.psd", ...))
     local success = result[1]
 
         rollbackLoaded()
