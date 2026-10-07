@@ -33,6 +33,7 @@ jobs:
       - name: Ensure build
         run: |
           mise run build
+          git diff
           test -z "$(git diff --name-only)"
 
 
