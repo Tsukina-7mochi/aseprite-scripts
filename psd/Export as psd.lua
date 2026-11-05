@@ -67,73 +67,47 @@ function PackBits (data)
     end
 
     local result = ""
-    -- buffer stack
-    local stack = ""
-
-    -- -1: undetermined
-    --  0: continuous value
-    --  1: discontinuous value
-    local state = -1
-    local index = 1
-    while index <= #data do
-        local currentData = data:sub(index, index)
-        local stackTop = stack:sub(1, 1)
-
-        if state == -1 then
-            if #stack ~= 0 then
-                -- descide state
-                if stackTop == currentData then
-                    state = 0
-                else
-                    state = 1
+    local i = 1
+    
+    while i <= #data do
+        local byte = data:sub(i, i)
+        local runLength = 1
+        
+        -- Count consecutive identical bytes
+        while i + runLength <= #data and runLength < 128 and data:sub(i + runLength, i + runLength) == byte do
+            runLength = runLength + 1
+        end
+        
+        if runLength >= 3 then
+            -- Use RLE encoding for runs of 3+ identical bytes
+            result = result .. ("B"):pack(256 - (runLength - 1)) .. byte
+            i = i + runLength
+        else
+            -- Find a sequence of non-repeating bytes (literal run)
+            local literalStart = i
+            local literalLength = 0
+            
+            while literalLength < 128 and i <= #data do
+                local currentByte = data:sub(i, i)
+                local nextRunLength = 1
+                
+                while i + nextRunLength <= #data and nextRunLength < 128 and 
+                      data:sub(i + nextRunLength, i + nextRunLength) == currentByte do
+                    nextRunLength = nextRunLength + 1
                 end
+                
+                if nextRunLength >= 3 then
+                    -- Stop before a run of 3+ identical bytes
+                    break
+                end
+                
+                literalLength = literalLength + 1
+                i = i + 1
             end
-
-            stack = currentData .. stack
-        elseif state == 0 then
-            if stackTop == currentData then
-                -- just push value
-                stack = currentData .. stack
-            else
-                -- write out buffer contents and reset state
-                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
-                stack = currentData
-                state = -1
+            
+            if literalLength > 0 then
+                result = result .. ("B"):pack(literalLength - 1) .. data:sub(literalStart, literalStart + literalLength - 1)
             end
-        elseif state == 1 then
-            if stackTop ~= currentData then
-                -- just push value
-                stack = currentData .. stack
-            else
-                -- write out buffer contents and change state
-                result = result .. ("B"):pack(#stack - 2) .. stack:sub(2, -1):reverse()
-                stack = currentData .. currentData
-                state = 0
-            end
-        end
-
-        if #stack > 0x7F then
-            -- write out buffer contents
-            if state == 0 then
-                result = result .. ("B"):pack(256 - (#stack - 1)) .. stackTop
-            elseif state == 1 or state == -1 then
-                result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
-            end
-
-            -- reset state
-            state = -1
-            stack = ""
-        end
-
-        index = index + 1
-    end
-
-    if #stack > 0 then
-        -- write out buffer contents
-        if state == 0 then
-            result = result .. ("B"):pack(256 - (#stack - 1)) .. stack:sub(1, 1)
-        elseif state == 1 or state == -1 then
-            result = result .. ("B"):pack(#stack - 1) .. stack:reverse()
         end
     end
 
@@ -310,86 +284,51 @@ function ExportToPsd (sprite, filename, frameNum)
     ---@return string
     ---@return {r: integer, g: integer, b: integer, a: integer}
     local function createImageData (image)
-        local sizeBufferR = {} --[[ @type string[] ]]
-        local sizeBufferG = {} --[[ @type string[] ]]
-        local sizeBufferB = {} --[[ @type string[] ]]
-        local sizeBufferA = {} --[[ @type string[] ]]
-        local bufferR = {} --[[ @type string[] ]]
-        local bufferG = {} --[[ @type string[] ]]
-        local bufferB = {} --[[ @type string[] ]]
-        local bufferA = {} --[[ @type string[] ]]
+        -- Compress each channel separately with RLE
+        local function compressChannelData(pixelData)
+            local sizeBuffer = {} --[[ @type string[] ]]
+            local dataBuffer = {} --[[ @type string[] ]]
 
-        for y = 0, image.height - 1 do
-            local rowBufferR = {} --[[ @type string[] ]]
-            local rowBufferG = {} --[[ @type string[] ]]
-            local rowBufferB = {} --[[ @type string[] ]]
-            local rowBufferA = {} --[[ @type string[] ]]
-
-            for x = 0, image.width - 1 do
-                local r, g, b, a = getRGBColor(image, x, y)
-                rowBufferR[#rowBufferR + 1] = PackU8(r)
-                rowBufferG[#rowBufferG + 1] = PackU8(g)
-                rowBufferB[#rowBufferB + 1] = PackU8(b)
-                rowBufferA[#rowBufferA + 1] = PackU8(a)
+            for y = 0, image.height - 1 do
+                local startIdx = (y * image.width) + 1
+                local endIdx = startIdx + image.width - 1
+                local rowData = pixelData:sub(startIdx, endIdx)
+                
+                local compressedRow = PackBits(rowData)
+                sizeBuffer[#sizeBuffer + 1] = PackU16BE(#compressedRow)
+                dataBuffer[#dataBuffer + 1] = compressedRow
             end
 
-            local rowDataR = PackBits(table.concat(rowBufferR))
-            local rowDataG = PackBits(table.concat(rowBufferG))
-            local rowDataB = PackBits(table.concat(rowBufferB))
-            local rowDataA = PackBits(table.concat(rowBufferA))
-
-            if #rowDataR % 2 == 1 then
-                rowDataR = rowDataR .. "\x80"
-            end
-            if #rowDataG % 2 == 1 then
-                rowDataG = rowDataG .. "\x80"
-            end
-            if #rowDataB % 2 == 1 then
-                rowDataB = rowDataB .. "\x80"
-            end
-            if #rowDataA % 2 == 1 then
-                rowDataA = rowDataA .. "\x80"
-            end
-
-            sizeBufferR[#sizeBufferR + 1] = PackU16BE(#rowDataR)
-            sizeBufferG[#sizeBufferG + 1] = PackU16BE(#rowDataG)
-            sizeBufferB[#sizeBufferB + 1] = PackU16BE(#rowDataB)
-            sizeBufferA[#sizeBufferA + 1] = PackU16BE(#rowDataA)
-            bufferR[#bufferR + 1] = rowDataR
-            bufferG[#bufferG + 1] = rowDataG
-            bufferB[#bufferB + 1] = rowDataB
-            bufferA[#bufferA + 1] = rowDataA
+            local sizeData = table.concat(sizeBuffer)
+            local data = table.concat(dataBuffer)
+            local totalSize = 2 + #sizeData + #data  -- 2 for compression flag
+            
+            return PackU16BE(1) .. sizeData .. data, totalSize
         end
 
-        local sizeDataR = table.concat(sizeBufferR)
-        local sizeDataG = table.concat(sizeBufferG)
-        local sizeDataB = table.concat(sizeBufferB)
-        local sizeDataA = table.concat(sizeBufferA)
-        local dataR = table.concat(bufferR)
-        local dataG = table.concat(bufferG)
-        local dataB = table.concat(bufferB)
-        local dataA = table.concat(bufferA)
+        -- Extract raw channel data
+        local pixelDataR = ""
+        local pixelDataG = ""
+        local pixelDataB = ""
+        local pixelDataA = ""
 
-        local sizeR = 2 + #sizeDataR + #dataR
-        local sizeG = 2 + #sizeDataG + #dataG
-        local sizeB = 2 + #sizeDataB + #dataB
-        local sizeA = 2 + #sizeDataA + #dataA
+        for y = 0, image.height - 1 do
+            for x = 0, image.width - 1 do
+                local r, g, b, a = getRGBColor(image, x, y)
+                pixelDataR = pixelDataR .. PackU8(r)
+                pixelDataG = pixelDataG .. PackU8(g)
+                pixelDataB = pixelDataB .. PackU8(b)
+                pixelDataA = pixelDataA .. PackU8(a)
+            end
+        end
 
-        local data = table.concat({
-            -- compression = 1(RLE), size, data
-            PackU16BE(1),
-            sizeDataR,
-            dataR,
-            PackU16BE(1),
-            sizeDataG,
-            dataG,
-            PackU16BE(1),
-            sizeDataB,
-            dataB,
-            PackU16BE(1),
-            sizeDataA,
-            dataA,
-        })
+        -- Compress all channels
+        local dataR, sizeR = compressChannelData(pixelDataR)
+        local dataG, sizeG = compressChannelData(pixelDataG)
+        local dataB, sizeB = compressChannelData(pixelDataB)
+        local dataA, sizeA = compressChannelData(pixelDataA)
+
+        local data = dataR .. dataG .. dataB .. dataA
 
         return data, { r = sizeR, g = sizeG, b = sizeB, a = sizeA }
     end
@@ -596,22 +535,29 @@ function ExportToPsd (sprite, filename, frameNum)
     end
     local lrData = table.concat(lrBuffer)
     local idData = table.concat(idBuffer)
-    local padLayerAndMask = false
-    local layerInfoSize = 2 + #lrData + #idData
-    if layerInfoSize % 2 == 1 then
-        padLayerAndMask = true
-        layerInfoSize = layerInfoSize + 1
+    
+    -- Calculate layer info size: 2 bytes for count + layer records + channel data
+    local layerInfoDataSize = 2 + #lrData + #idData
+    
+    -- Calculate total section size (includes 4 bytes for layer info size field)
+    local totalLayerAndMaskSize = 4 + layerInfoDataSize
+    
+    -- Pad to even boundary if needed
+    local paddingByte = ""
+    if totalLayerAndMaskSize % 2 == 1 then
+        paddingByte = PackU8(0)
     end
+    
     local layerAndMaskData = table.concat({
-        PackU32BE(4 + layerInfoSize), -- size
-        PackU32BE(layerInfoSize), -- layer info: size TBD
+        PackU32BE(totalLayerAndMaskSize), -- size of entire section after this field
+        PackU32BE(layerInfoDataSize), -- layer info size
         PackU16BE(layerCount), -- layer info: layer count
         lrData, -- layer records
         idData, -- channel image data
     })
     file:write(layerAndMaskData)
-    if padLayerAndMask then
-        file:write(PackU8(0))
+    if paddingByte ~= "" then
+        file:write(paddingByte)
     end
 
     -- ==============================
@@ -626,84 +572,67 @@ function ExportToPsd (sprite, filename, frameNum)
     tempSprite:flatten()
     local tempCel = tempSprite.cels[1]
     local tempImage = tempCel.image
+    local tempWidth = tempSprite.width
+    local tempHeight = tempSprite.height
 
-    local imageDataSizeBufferR = {} --[[ @type string[] ]]
-    local imageDataSizeBufferG = {} --[[ @type string[] ]]
-    local imageDataSizeBufferB = {} --[[ @type string[] ]]
-    local imageDataSizeBufferA = {} --[[ @type string[] ]]
-    local imageDataBufferR = {} --[[ @type string[] ]]
-    local imageDataBufferG = {} --[[ @type string[] ]]
-    local imageDataBufferB = {} --[[ @type string[] ]]
-    local imageDataBufferA = {} --[[ @type string[] ]]
-    for y = 0, tempSprite.height - 1 do
-        local rowBufferR = {} --[[ @type string[] ]]
-        local rowBufferG = {} --[[ @type string[] ]]
-        local rowBufferB = {} --[[ @type string[] ]]
-        local rowBufferA = {} --[[ @type string[] ]]
+    -- Compress composite image data
+    local function compressCompositeChannel(pixelData)
+        local sizeBuffer = {} --[[ @type string[] ]]
+        local dataBuffer = {} --[[ @type string[] ]]
 
-        for x = 0, tempSprite.width - 1 do
-            if pointInBounds(tempCel.bounds, x, y) then
-                local r, g, b, a = getRGBColor(tempImage, x, y)
-                rowBufferR[#rowBufferR + 1] = PackU8(r)
-                rowBufferG[#rowBufferG + 1] = PackU8(g)
-                rowBufferB[#rowBufferB + 1] = PackU8(b)
-                rowBufferA[#rowBufferA + 1] = PackU8(a)
-            else
-                rowBufferR[#rowBufferR + 1] = "\x00"
-                rowBufferG[#rowBufferG + 1] = "\x00"
-                rowBufferB[#rowBufferB + 1] = "\x00"
-                rowBufferA[#rowBufferA + 1] = "\x00"
-            end
+        for y = 0, tempHeight - 1 do
+            local startIdx = (y * tempWidth) + 1
+            local endIdx = startIdx + tempWidth - 1
+            local rowData = pixelData:sub(startIdx, endIdx)
+            
+            local compressedRow = PackBits(rowData)
+            sizeBuffer[#sizeBuffer + 1] = PackU16BE(#compressedRow)
+            dataBuffer[#dataBuffer + 1] = compressedRow
         end
 
-        local rowDataR = PackBits(table.concat(rowBufferR))
-        local rowDataG = PackBits(table.concat(rowBufferG))
-        local rowDataB = PackBits(table.concat(rowBufferB))
-        local rowDataA = PackBits(table.concat(rowBufferA))
-
-        if #rowDataR % 2 == 1 then
-            rowDataR = rowDataR .. "\x80"
-        end
-        if #rowDataG % 2 == 1 then
-            rowDataG = rowDataG .. "\x80"
-        end
-        if #rowDataB % 2 == 1 then
-            rowDataB = rowDataB .. "\x80"
-        end
-        if #rowDataA % 2 == 1 then
-            rowDataA = rowDataA .. "\x80"
-        end
-
-        imageDataSizeBufferR[#imageDataSizeBufferR + 1] = PackU16BE(#rowDataR)
-        imageDataSizeBufferG[#imageDataSizeBufferG + 1] = PackU16BE(#rowDataG)
-        imageDataSizeBufferB[#imageDataSizeBufferB + 1] = PackU16BE(#rowDataB)
-        imageDataSizeBufferA[#imageDataSizeBufferA + 1] = PackU16BE(#rowDataA)
-        imageDataBufferR[#imageDataBufferR + 1] = rowDataR
-        imageDataBufferG[#imageDataBufferG + 1] = rowDataG
-        imageDataBufferB[#imageDataBufferB + 1] = rowDataB
-        imageDataBufferA[#imageDataBufferA + 1] = rowDataA
+        return table.concat(sizeBuffer), table.concat(dataBuffer)
     end
 
-    tempSprite:close()
+    -- Extract raw composite channel data
+    local compositePixelDataR = ""
+    local compositePixelDataG = ""
+    local compositePixelDataB = ""
+    local compositePixelDataA = ""
 
-    local imageSizeDataR = table.concat(imageDataSizeBufferR)
-    local imageSizeDataG = table.concat(imageDataSizeBufferG)
-    local imageSizeDataB = table.concat(imageDataSizeBufferB)
-    local imageSizeDataA = table.concat(imageDataSizeBufferA)
-    local imageDataR = table.concat(imageDataBufferR)
-    local imageDataG = table.concat(imageDataBufferG)
-    local imageDataB = table.concat(imageDataBufferB)
-    local imageDataA = table.concat(imageDataBufferA)
+    for y = 0, tempHeight - 1 do
+        for x = 0, tempWidth - 1 do
+            if pointInBounds(tempCel.bounds, x, y) then
+                local r, g, b, a = getRGBColor(tempImage, x, y)
+                compositePixelDataR = compositePixelDataR .. PackU8(r)
+                compositePixelDataG = compositePixelDataG .. PackU8(g)
+                compositePixelDataB = compositePixelDataB .. PackU8(b)
+                compositePixelDataA = compositePixelDataA .. PackU8(a)
+            else
+                compositePixelDataR = compositePixelDataR .. "\x00"
+                compositePixelDataG = compositePixelDataG .. "\x00"
+                compositePixelDataB = compositePixelDataB .. "\x00"
+                compositePixelDataA = compositePixelDataA .. "\x00"
+            end
+        end
+    end
+
+    -- Compress all channels
+    local imageSizeDataR, imageDataR = compressCompositeChannel(compositePixelDataR)
+    local imageSizeDataG, imageDataG = compressCompositeChannel(compositePixelDataG)
+    local imageSizeDataB, imageDataB = compressCompositeChannel(compositePixelDataB)
+    local imageSizeDataA, imageDataA = compressCompositeChannel(compositePixelDataA)
+
+    tempSprite:close()
 
     local imageData = table.concat({
         -- compression = 1 (RLE)
         PackU16BE(1),
-        -- size
+        -- row compression size information for all rows
         imageSizeDataR,
         imageSizeDataG,
         imageSizeDataB,
         imageSizeDataA,
-        -- data
+        -- compressed channel data
         imageDataR,
         imageDataG,
         imageDataB,
